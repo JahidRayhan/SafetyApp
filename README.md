@@ -70,7 +70,7 @@ Admin cannot delete sensitive data without Govt approval
 
 All roles can view their activity history/logs
 
-# Tech Stack Suggestion (Optional)
+# Tech Stack
 
 Frontend: React.js + Tailwind CSS
 
