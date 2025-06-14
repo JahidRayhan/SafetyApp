@@ -21,3 +21,4 @@ const AuthHeader = ({ isLogin }: AuthHeaderProps) => {
 };
 
 export default AuthHeader;
+
