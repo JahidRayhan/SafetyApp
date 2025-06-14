@@ -56,4 +56,3 @@ const ChatMessage = ({ message }: ChatMessageProps) => {
 };
 
 export default ChatMessage;
-
