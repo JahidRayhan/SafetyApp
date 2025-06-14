@@ -71,20 +71,39 @@ Admin cannot delete sensitive data without Govt approval
 All roles can view their activity history/logs
 
 # Tech Stack
+Frontend: React.js + TypeScript + Tailwind CSS + Shadcn/UI
 
-Frontend: React.js + Tailwind CSS
+Backend: Supabase (PostgreSQL database + Auth + Edge Functions + Real-time subscriptions)
 
-Backend: Django (REST API), Firebase (real-time sync, optional for location)
+Mobile: Capacitor.js with native Android integration (power button SOS triggers)
 
-Mobile: CapacitorJS/Ionic with platform-specific triggers
+Cloud Storage: Supabase Storage (for emergency recordings and evidence uploads)
 
-Cloud Storage: AWS S3 / Firebase Storage
+UI Framework: Radix UI components + Shadcn/UI + Tailwind CSS
 
-AI Integration: Whisper/DeepSpeech for voice, custom TensorFlow Lite models for scream detection
+State Management: React Query (TanStack Query) + React Context
 
-Map API: Google Maps API
+Routing: React Router DOM
 
-Push Notifications: Firebase Cloud Messaging (FCM)
+Audio/Video Processing: Web MediaRecorder API + MediaDevices API
+
+Real-time Features: Supabase Real-time (for live location tracking and alerts)
+
+Authentication: Supabase Auth (with role-based access control)
+
+Geolocation: Browser Geolocation API + Google Maps integration
+
+Push Notifications: Web Push Notifications API + Supabase Edge Functions
+
+Audio Analysis: Web Audio API (for scream detection using frequency analysis)
+
+Forms & Validation: React Hook Form + Zod schema validation
+
+Date Handling: date-fns library
+
+Charts & Analytics: Recharts
+
+Development Tools: Vite + ESLint + TypeScript
 
 # Summary
 
