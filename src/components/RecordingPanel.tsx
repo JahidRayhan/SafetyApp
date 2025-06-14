@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import AudioRecorder from './AudioRecorder';
 import VideoRecorder from './VideoRecorder';
-import { Mic, Video, FileText } from 'lucide-react';
+import EvidenceUploader from './EvidenceUploader';
+import { Mic, Video, FileText, Upload } from 'lucide-react';
 
 interface RecordingPanelProps {
   incidentId?: string;
@@ -10,11 +11,12 @@ interface RecordingPanelProps {
 }
 
 const RecordingPanel = ({ incidentId, onRecordingComplete }: RecordingPanelProps) => {
-  const [activeTab, setActiveTab] = useState<'audio' | 'video'>('audio');
+  const [activeTab, setActiveTab] = useState<'audio' | 'video' | 'upload'>('audio');
 
   const tabs = [
     { id: 'audio', label: 'Audio', icon: Mic },
     { id: 'video', label: 'Video', icon: Video },
+    { id: 'upload', label: 'Upload Evidence', icon: Upload },
   ];
 
   return (
@@ -31,7 +33,7 @@ const RecordingPanel = ({ incidentId, onRecordingComplete }: RecordingPanelProps
             return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id as 'audio' | 'video')}
+                onClick={() => setActiveTab(tab.id as 'audio' | 'video' | 'upload')}
                 className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
                   activeTab === tab.id
                     ? 'bg-emergency-600 text-white'
@@ -58,6 +60,13 @@ const RecordingPanel = ({ incidentId, onRecordingComplete }: RecordingPanelProps
             onRecordingComplete={onRecordingComplete}
           />
         )}
+
+        {activeTab === 'upload' && (
+          <EvidenceUploader 
+            incidentId={incidentId} 
+            onUploadComplete={onRecordingComplete}
+          />
+        )}
       </div>
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -66,6 +75,7 @@ const RecordingPanel = ({ incidentId, onRecordingComplete }: RecordingPanelProps
           <li>• Record clear audio/video evidence of the situation</li>
           <li>• Speak clearly and describe what you're seeing</li>
           <li>• Keep recordings focused and relevant to the incident</li>
+          <li>• Upload existing photos/videos from your device</li>
           <li>• All recordings are encrypted and stored securely</li>
         </ul>
       </div>
