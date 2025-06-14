@@ -3,7 +3,7 @@
 
 ## Project info
 
-**URL**: 
+**URL**: https://safetyprotection.netlify.app/
 
 ## Safety & Protection Web & Mobile Application
 
