@@ -12,7 +12,9 @@ import Community from '@/components/Community';
 import ContentRenderer from '@/components/dashboard/ContentRenderer';
 import EmergencyButton from '@/components/EmergencyButton';
 import ScreamDetection from '@/components/ScreamDetection';
+import LocationTracker from '@/components/LocationTracker';
 import { useToast } from '@/hooks/use-toast';
+import { useLocationAlerts } from '@/hooks/useLocationAlerts';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -21,6 +23,15 @@ const Index = () => {
   const [showAuth, setShowAuth] = useState(false);
   const [isSOSActive, setIsSOSActive] = useState(false);
   const { toast } = useToast();
+  const { startLocationTracking } = useLocationAlerts();
+
+  // Auto-start location tracking for users
+  React.useEffect(() => {
+    if (user && profile?.role === 'user') {
+      const cleanup = startLocationTracking();
+      return cleanup;
+    }
+  }, [user, profile, startLocationTracking]);
 
   if (loading) {
     return (
@@ -73,6 +84,14 @@ const Index = () => {
           <div className="flex justify-center">
             <EmergencyButton />
           </div>
+        </div>
+      );
+    }
+
+    if (activeTab === 'location-tracking' && userRole === 'user') {
+      return (
+        <div className="container mx-auto px-4 py-6">
+          <LocationTracker />
         </div>
       );
     }
