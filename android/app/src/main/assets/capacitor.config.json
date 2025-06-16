@@ -1,0 +1,11 @@
+{
+	"appId": "com.safeguard.app",
+	"appName": "SafeGuard",
+	"webDir": "dist",
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 0
+		}
+	},
+	"android": {}
+}
