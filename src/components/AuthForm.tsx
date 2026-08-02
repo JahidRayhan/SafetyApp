@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { authService, type AccountRole } from '@/features/auth/services/authService';
 import { useToast } from '@/hooks/use-toast';
 import { Eye, EyeOff, Shield, User, UserCheck, Crown } from 'lucide-react';
 
@@ -14,7 +14,7 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [selectedRole, setSelectedRole] = useState<'user' | 'admin' | 'govt_admin'>('user');
+  const [selectedRole, setSelectedRole] = useState<AccountRole>('user');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
@@ -31,114 +31,39 @@ const AuthForm = ({ onAuthSuccess }: AuthFormProps) => {
 
     try {
       if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        if (error) throw error;
-        
+        await authService.signIn({ email, password });
         toast({
           title: "Welcome back!",
           description: "You've been signed in successfully.",
         });
         onAuthSuccess();
       } else {
-        // Check if admin/govt_admin signup needs approval
-        if (selectedRole !== 'user') {
-          // For admin/govt_admin, create approval request
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: fullName,
-                phone_number: phoneNumber,
-                requested_role: selectedRole,
-              }
-            }
-          });
-          
-          if (error) throw error;
-          
-          if (data.user) {
-            // Create approval request
-            const { error: approvalError } = await supabase
-              .from('admin_approvals')
-              .insert({
-                user_id: data.user.id,
-                requested_role: selectedRole,
-                requested_by_email: email,
-              });
+        const { pendingApproval } = await authService.signUp({
+          email,
+          password,
+          fullName,
+          phoneNumber,
+          role: selectedRole,
+        });
 
-            if (approvalError) {
-              console.error('Error creating approval request:', approvalError);
-            }
-
-            // Create profile with pending status
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .insert({
-                id: data.user.id,
-                full_name: fullName,
-                phone_number: phoneNumber,
-                role: 'user', // Set as user until approved
-              });
-            
-            if (profileError) {
-              console.error('Error creating profile:', profileError);
-            }
-          }
-          
+        if (pendingApproval) {
           toast({
             title: "Account created - Pending Approval",
             description: `Your ${selectedRole} account has been created and is pending admin approval.`,
           });
-          
-          // Sign out the user since they need approval
-          await supabase.auth.signOut();
           return;
-        } else {
-          // Regular user signup
-          const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-              data: {
-                full_name: fullName,
-                phone_number: phoneNumber,
-              }
-            }
-          });
-          
-          if (error) throw error;
-          
-          if (data.user) {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .insert({
-                id: data.user.id,
-                full_name: fullName,
-                phone_number: phoneNumber,
-                role: 'user',
-              });
-            
-            if (profileError) {
-              console.error('Error creating profile:', profileError);
-            }
-          }
-          
-          toast({
-            title: "Account created!",
-            description: "Your SafeGuard account has been created successfully.",
-          });
-          onAuthSuccess();
         }
+
+        toast({
+          title: "Account created!",
+          description: "Your SafeGuard account has been created successfully.",
+        });
+        onAuthSuccess();
       }
     } catch (error: any) {
       toast({
         title: "Authentication Error",
-        description: error.message,
+        description: error?.message ?? 'Unexpected error',
         variant: "destructive",
       });
     } finally {

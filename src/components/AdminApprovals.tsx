@@ -2,25 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, User, UserCheck, Crown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { useActivityLogger } from '@/components/ActivityLog';
-
-interface AdminApproval {
-  id: string;
-  user_id: string;
-  requested_role: 'admin' | 'govt_admin';
-  status: string;
-  requested_by_email: string;
-  approved_by: string | null;
-  approved_at: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-}
+import { approvalService } from '@/features/admin/services/approvalService';
+import type { AdminApprovalRequest } from '@/features/admin/domain/types';
 
 const AdminApprovals = () => {
-  const [approvals, setApprovals] = useState<AdminApproval[]>([]);
+  const [approvals, setApprovals] = useState<AdminApprovalRequest[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
@@ -35,16 +24,8 @@ const AdminApprovals = () => {
 
   const fetchApprovals = async () => {
     try {
-      // Use RPC call to get admin approvals
-      const { data, error } = await supabase
-        .rpc('get_admin_approvals_list' as any);
-
-      if (error) {
-        console.error('Error fetching approvals:', error);
-        setApprovals([]);
-      } else {
-        setApprovals(data || []);
-      }
+      const data = await approvalService.list();
+      setApprovals(data);
     } catch (error: any) {
       console.error('Error fetching approvals:', error);
       setApprovals([]);
@@ -63,28 +44,17 @@ const AdminApprovals = () => {
       const approval = approvals.find(a => a.id === approvalId);
       if (!approval) return;
 
-      // Use RPC for updating approvals
-      const { error } = await supabase.rpc('handle_admin_approval' as any, {
-        approval_id: approvalId,
-        action: action,
-        approved_by_id: user?.id,
-        rejection_reason: rejectionReason || null
-      });
+      await approvalService.handle(approvalId, action, user?.id || '', approval.status, rejectionReason);
 
-      if (error) {
-        console.error('Error handling approval:', error);
-        throw error;
-      }
-
-      await logActivity('admin', `${action === 'approve' ? 'Approved' : 'Rejected'} ${approval.requested_role} request for ${approval.requested_by_email}`, {
+      await logActivity('admin', `${action === 'approve' ? 'Approved' : 'Rejected'} ${approval.requestedRole} request for ${approval.requestedByEmail}`, {
         approval_id: approvalId,
-        requested_role: approval.requested_role,
+        requested_role: approval.requestedRole,
         action: action
       });
 
       toast({
         title: `Request ${action === 'approve' ? 'Approved' : 'Rejected'}`,
-        description: `The ${approval.requested_role} request has been ${action}d successfully.`,
+        description: `The ${approval.requestedRole} request has been ${action}d successfully.`,
       });
 
       fetchApprovals();
@@ -155,27 +125,27 @@ const AdminApprovals = () => {
 
       <div className="space-y-4">
         {approvals.map((approval) => {
-          const Icon = getRoleIcon(approval.requested_role);
+          const Icon = getRoleIcon(approval.requestedRole);
           return (
             <div key={approval.id} className="border border-gray-200 rounded-lg p-4">
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <Icon className="w-5 h-5 text-gray-600" />
-                    <h3 className="font-semibold text-gray-900">{approval.requested_by_email}</h3>
+                    <h3 className="font-semibold text-gray-900">{approval.requestedByEmail}</h3>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(approval.status)}`}>
                       {approval.status.charAt(0).toUpperCase() + approval.status.slice(1)}
                     </span>
                   </div>
                   
                   <div className="text-sm text-gray-600 space-y-1">
-                    <p>Requested Role: <span className="font-medium">{approval.requested_role.replace('_', ' ').toUpperCase()}</span></p>
-                    <p>Requested: {new Date(approval.created_at).toLocaleString()}</p>
-                    {approval.approved_at && (
-                      <p>Processed: {new Date(approval.approved_at).toLocaleString()}</p>
+                    <p>Requested Role: <span className="font-medium">{approval.requestedRole.replace('_', ' ').toUpperCase()}</span></p>
+                    <p>Requested: {new Date(approval.createdAt).toLocaleString()}</p>
+                    {approval.approvedAt && (
+                      <p>Processed: {new Date(approval.approvedAt).toLocaleString()}</p>
                     )}
-                    {approval.rejection_reason && (
-                      <p className="text-red-600">Reason: {approval.rejection_reason}</p>
+                    {approval.rejectionReason && (
+                      <p className="text-red-600">Reason: {approval.rejectionReason}</p>
                     )}
                   </div>
                 </div>

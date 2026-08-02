@@ -18,6 +18,9 @@ import ActivityLog from '@/components/ActivityLog';
 import AlertSystem from '@/components/AlertSystem';
 import ReviewRequests from '@/components/ReviewRequests';
 import DataRequest from '@/components/DataRequest';
+import ActivityMonitoring from '@/components/ActivityMonitoring';
+import CommunityManagement from '@/components/CommunityManagement';
+import SOSAlertsPanel from '@/components/admin/SOSAlertsPanel';
 
 interface ContentRendererProps {
   activeTab: string;
@@ -49,13 +52,18 @@ const ContentRenderer = ({ activeTab, userRole }: ContentRendererProps) => {
     case 'govt-requests':
       return <GovernmentRequests />;
     case 'resources':
+    case 'safety-resources':
       return <SafetyResourceDirectory />;
+    case 'activity-monitoring':
+      return <ActivityMonitoring />;
+    case 'community-management':
+      return <CommunityManagement />;
     case 'activity':
       return <ActivityHistory />;
     case 'activity-log':
       return <ActivityLog />;
     case 'alerts':
-      return <AlertSystem />;
+      return userRole === 'admin' ? <SOSAlertsPanel /> : <AlertSystem />;
     case 'review-requests':
       return <ReviewRequests />;
     case 'request':

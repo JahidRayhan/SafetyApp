@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Mic, Square, Play, Pause, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { evidenceService } from '@/features/evidence/services/evidenceService';
 
 interface AudioRecorderProps {
   incidentId?: string;
@@ -86,30 +86,12 @@ const AudioRecorder = ({ incidentId, onRecordingComplete }: AudioRecorderProps) 
     try {
       const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
       const fileName = `${Date.now()}_audio.webm`;
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user.user) throw new Error('Not authenticated');
+      const audioFile = new File([audioBlob], fileName, { type: 'audio/webm' });
 
-      const filePath = `${user.user.id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('recordings')
-        .upload(filePath, audioBlob);
-
-      if (uploadError) throw uploadError;
-
-      const { error: dbError } = await supabase
-        .from('recordings')
-        .insert({
-          incident_id: incidentId,
-          user_id: user.user.id,
-          file_path: filePath,
-          file_type: 'audio',
-          file_size: audioBlob.size,
-          duration_seconds: Math.round((audioRef.current?.duration || 0))
-        });
-
-      if (dbError) throw dbError;
+      const { filePath } = await evidenceService.uploadOne(audioFile, {
+        incidentId,
+        durationSeconds: Math.round(audioRef.current?.duration || 0),
+      });
 
       toast({
         title: "Recording Uploaded",

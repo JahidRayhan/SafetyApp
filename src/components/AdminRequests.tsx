@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { Shield, Send, AlertCircle, MapPin, Database } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 
 const AdminRequests = () => {
   const [activeTab, setActiveTab] = useState<'zone-request' | 'data-modification'>('zone-request');

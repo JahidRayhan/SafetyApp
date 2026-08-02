@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "12.2.12 (cd3cf9e)"
+  }
   public: {
     Tables: {
       activity_logs: {
@@ -15,7 +20,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           metadata: Json | null
           user_agent: string | null
           user_id: string
@@ -25,7 +30,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           metadata?: Json | null
           user_agent?: string | null
           user_id: string
@@ -35,7 +40,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           metadata?: Json | null
           user_agent?: string | null
           user_id?: string
@@ -438,6 +443,68 @@ export type Database = {
         }
         Relationships: []
       }
+      live_location_sessions: {
+        Row: {
+          contacts_notified: number
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          id: string
+          incident_id: string | null
+          last_accuracy: number | null
+          last_lat: number | null
+          last_lng: number | null
+          last_updated_at: string | null
+          started_at: string
+          status: string
+          updated_at: string
+          updates_sent: number
+          user_id: string
+        }
+        Insert: {
+          contacts_notified?: number
+          created_at?: string
+          ended_at?: string | null
+          expires_at: string
+          id?: string
+          incident_id?: string | null
+          last_accuracy?: number | null
+          last_lat?: number | null
+          last_lng?: number | null
+          last_updated_at?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updates_sent?: number
+          user_id: string
+        }
+        Update: {
+          contacts_notified?: number
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          id?: string
+          incident_id?: string | null
+          last_accuracy?: number | null
+          last_lat?: number | null
+          last_lng?: number | null
+          last_updated_at?: string | null
+          started_at?: string
+          status?: string
+          updated_at?: string
+          updates_sent?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "live_location_sessions_incident_id_fkey"
+            columns: ["incident_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_incidents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       location_history: {
         Row: {
           accuracy: number | null
@@ -716,6 +783,60 @@ export type Database = {
         }
         Relationships: []
       }
+      sos_alert_deliveries: {
+        Row: {
+          attempt_number: number
+          attempted_at: string
+          channel: string
+          contact_id: string | null
+          created_at: string
+          delivery_status: string
+          error_message: string | null
+          id: string
+          incident_id: string
+          provider_message_id: string | null
+          recipient_email: string | null
+          recipient_phone: string | null
+          resent_from_delivery_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_number?: number
+          attempted_at?: string
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          delivery_status?: string
+          error_message?: string | null
+          id?: string
+          incident_id: string
+          provider_message_id?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          resent_from_delivery_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_number?: number
+          attempted_at?: string
+          channel?: string
+          contact_id?: string | null
+          created_at?: string
+          delivery_status?: string
+          error_message?: string | null
+          id?: string
+          incident_id?: string
+          provider_message_id?: string | null
+          recipient_email?: string | null
+          recipient_phone?: string | null
+          resent_from_delivery_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       story_likes: {
         Row: {
           created_at: string | null
@@ -843,40 +964,115 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      incident_reports_public: {
+        Row: {
+          description: string | null
+          id: string | null
+          incident_type: string | null
+          is_anonymous: boolean | null
+          location_description: string | null
+          location_lat: number | null
+          location_lng: number | null
+          media_files: Json | null
+          reported_at: string | null
+          reviewed_at: string | null
+          severity_level: number | null
+          status: string | null
+          tags: string[] | null
+          title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string | null
+          incident_type?: string | null
+          is_anonymous?: boolean | null
+          location_description?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          media_files?: Json | null
+          reported_at?: string | null
+          reviewed_at?: string | null
+          severity_level?: number | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string | null
+          incident_type?: string | null
+          is_anonymous?: boolean | null
+          location_description?: string | null
+          location_lat?: number | null
+          location_lng?: number | null
+          media_files?: Json | null
+          reported_at?: string | null
+          reviewed_at?: string | null
+          severity_level?: number | null
+          status?: string | null
+          tags?: string[] | null
+          title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      can_view_all_profiles: { Args: { _user_id: string }; Returns: boolean }
       create_admin_approval_request: {
         Args: {
-          user_id: string
-          requested_role_input: string
           requested_by_email_input: string
+          requested_role_input: string
+          user_id: string
         }
         Returns: undefined
       }
+      decrement_story_likes: { Args: { story_id: string }; Returns: undefined }
       get_admin_approvals_list: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
+          approved_at: string
+          approved_by: string
+          created_at: string
           id: string
-          user_id: string
+          rejection_reason: string
+          requested_by_email: string
           requested_role: string
           status: string
-          requested_by_email: string
-          approved_by: string
+          user_id: string
+        }[]
+      }
+      get_public_stories: {
+        Args: never
+        Returns: {
           approved_at: string
-          rejection_reason: string
+          approved_by: string
+          author_name: string
+          content: string
           created_at: string
+          id: string
+          is_anonymous: boolean
+          likes_count: number
+          status: string
+          story_type: string
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
         }[]
       }
       handle_admin_approval: {
         Args: {
-          approval_id: string
           action: string
+          approval_id: string
           approved_by_id: string
           rejection_reason?: string
         }
         Returns: undefined
       }
+      increment_story_likes: { Args: { story_id: string }; Returns: undefined }
     }
     Enums: {
       user_role: "user" | "admin" | "govt_admin"
@@ -887,21 +1083,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -919,14 +1119,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -942,14 +1144,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -965,14 +1169,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -980,14 +1186,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never

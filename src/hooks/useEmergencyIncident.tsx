@@ -1,55 +1,52 @@
-
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
 import { useActivityLogger } from '@/components/ActivityLog';
 import { useEmergencyAlerts } from './useEmergencyAlerts';
+import { sosService } from '@/features/sos/services/sosService';
+import { useSosStore } from '@/stores';
+import { ThreatLevel } from '@/features/sos/domain/types';
 
+/**
+ * Thin orchestration hook for the SOS lifecycle.
+ *
+ * - Lifecycle DB calls live in `sosService`
+ * - Active incident, threat level, and countdown live in `useSosStore`
+ * - This hook only sequences side effects (geolocation, alerts, activity log)
+ */
 export const useEmergencyIncident = () => {
   const { toast } = useToast();
   const { logActivity } = useActivityLogger();
   const { sendEmergencyAlerts } = useEmergencyAlerts();
 
-  const createEmergencyIncident = async () => {
+  const createEmergencyIncident = async (): Promise<string | null> => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
+      const incident = await sosService.createIncident();
+      useSosStore.getState().setActiveIncident(incident);
+      useSosStore.getState().setThreatLevel(ThreatLevel.High);
 
-      const { data: incident, error: incidentError } = await supabase
-        .from('emergency_incidents')
-        .insert({
-          user_id: user.user.id,
-          status: 'active'
-        })
-        .select()
-        .single();
-
-      if (incidentError) throw incidentError;
-
-      await logActivity('emergency', 'Emergency incident created', { 
-        incident_id: incident.id 
+      await logActivity('emergency', 'Emergency incident created', {
+        incident_id: incident.id,
       });
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (position) => {
-            await supabase
-              .from('emergency_incidents')
-              .update({
-                location_lat: position.coords.latitude,
-                location_lng: position.coords.longitude,
-                location_accuracy: position.coords.accuracy
-              })
-              .eq('id', incident.id);
-
-            await logActivity('emergency', 'Emergency location updated', { 
-              incident_id: incident.id,
-              location: {
+            try {
+              await sosService.updateIncidentLocation(incident.id, {
                 lat: position.coords.latitude,
                 lng: position.coords.longitude,
-                accuracy: position.coords.accuracy
-              }
-            });
-
+                accuracy: position.coords.accuracy,
+              });
+              await logActivity('emergency', 'Emergency location updated', {
+                incident_id: incident.id,
+                location: {
+                  lat: position.coords.latitude,
+                  lng: position.coords.longitude,
+                  accuracy: position.coords.accuracy,
+                },
+              });
+            } catch (e) {
+              console.warn('Failed to persist incident location', e);
+            }
             await sendEmergencyAlerts(incident.id, position);
           },
           async (error) => {
@@ -65,13 +62,31 @@ export const useEmergencyIncident = () => {
       return incident.id;
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
+        title: 'Error',
+        description: error?.message ?? 'Failed to create emergency incident',
+        variant: 'destructive',
       });
       return null;
     }
   };
 
-  return { createEmergencyIncident };
+  const resolveActiveIncident = async (): Promise<void> => {
+    const active = useSosStore.getState().activeIncident;
+    if (!active) return;
+    try {
+      const updated = await sosService.resolve(active);
+      useSosStore.getState().setActiveIncident(null);
+      await logActivity('emergency', 'Emergency incident resolved', {
+        incident_id: updated.id,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error?.message ?? 'Failed to resolve incident',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  return { createEmergencyIncident, resolveActiveIncident };
 };

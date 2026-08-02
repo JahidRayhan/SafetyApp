@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Plus, CheckCircle, XCircle, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { storyService } from '@/features/community';
 
 const UserStoryForm = ({ onStorySubmitted }: { onStorySubmitted?: () => void }) => {
   const [formData, setFormData] = useState({
@@ -26,21 +26,13 @@ const UserStoryForm = ({ onStorySubmitted }: { onStorySubmitted?: () => void }) 
     setIsSubmitting(true);
     
     try {
-      const storyData = {
+      await storyService.create(user.id, {
         title: formData.title,
         content: formData.content,
-        story_type: formData.story_type,
-        is_anonymous: formData.is_anonymous,
-        author_name: formData.is_anonymous ? formData.author_name : null,
-        user_id: user.id,
-        status: 'pending' // Will be reviewed before publishing
-      };
-
-      const { error } = await supabase
-        .from('personal_stories')
-        .insert(storyData);
-
-      if (error) throw error;
+        storyType: formData.story_type,
+        isAnonymous: formData.is_anonymous,
+        authorName: formData.is_anonymous ? formData.author_name : null,
+      });
 
       toast({
         title: "Story Submitted!",

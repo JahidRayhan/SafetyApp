@@ -9,7 +9,6 @@ const corsHeaders = {
 
 interface RecordingUpload {
   incident_id: string;
-  user_id: string;
   file_path: string;
   file_type: 'audio' | 'video' | 'image';
   file_size: number;
@@ -27,13 +26,31 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // SECURITY: Verify caller's JWT and derive user_id from it.
+    const authHeader = req.headers.get('Authorization');
+    const token = authHeader?.replace('Bearer ', '');
+    if (!token) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !userData?.user) {
+      return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const user_id = userData.user.id;
+
     const uploadData: RecordingUpload = await req.json();
-    console.log('Processing recording upload:', uploadData);
+    console.log('Processing recording upload:', { ...uploadData, user_id });
 
     // Verify the file exists in storage
     const { data: fileData, error: fileError } = await supabase.storage
       .from('emergency-recordings')
-      .list(uploadData.user_id, {
+      .list(user_id, {
         search: uploadData.file_path.split('/').pop()
       });
 
@@ -47,7 +64,7 @@ serve(async (req) => {
       .from('recordings')
       .insert({
         incident_id: uploadData.incident_id,
-        user_id: uploadData.user_id,
+        user_id: user_id,
         file_path: uploadData.file_path,
         file_type: uploadData.file_type,
         file_size: uploadData.file_size,
@@ -63,7 +80,7 @@ serve(async (req) => {
 
     // Log the recording upload
     await supabase.from('activity_logs').insert({
-      user_id: uploadData.user_id,
+      user_id: user_id,
       action_type: 'evidence_upload',
       description: `Emergency ${uploadData.file_type} recording uploaded`,
       metadata: {
@@ -95,7 +112,8 @@ serve(async (req) => {
     console.error('Error in process-recording-upload function:', error);
     return new Response(JSON.stringify({ 
       success: false, 
-      error: error.message 
+      error: 'Internal server error.',
+      error_code: 'INTERNAL_ERROR'
     }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

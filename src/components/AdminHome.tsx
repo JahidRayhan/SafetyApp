@@ -20,73 +20,41 @@ interface AdminHomeProps {
 const AdminHome = ({ onFeatureSelect }: AdminHomeProps) => {
   const adminFeatures = [
     {
-      id: 'activity-log',
+      id: 'activity-monitoring',
       title: 'Activity Monitoring',
-      description: 'Monitor system and user activities',
+      description: 'A log to keep track of actions for all users across all roles',
       icon: Activity,
-      color: 'bg-blue-500',
-      category: 'primary'
+      color: 'bg-blue-500'
     },
     {
-      id: 'govt-requests',
-      title: 'Government Requests',
-      description: 'Handle government data requests',
-      icon: FileText,
-      color: 'bg-red-500',
-      category: 'primary'
+      id: 'alerts',
+      title: 'SOS Alerts',
+      description: 'Review recent SOS alerts, check delivery status, and resend failed notifications',
+      icon: Bell,
+      color: 'bg-red-500'
     },
     {
       id: 'review-requests',
       title: 'Review Requests',
-      description: 'Review and approve admin requests',
+      description: 'Accept admin/govt admin signup requests and review user info requests',
       icon: Shield,
-      color: 'bg-purple-500',
-      category: 'primary'
+      color: 'bg-purple-500'
     },
     {
-      id: 'chatbot',
-      title: 'AI Assistant',
-      description: 'Access administrative chatbot support',
-      icon: MessageSquare,
-      color: 'bg-green-500',
-      category: 'secondary'
-    },
-    {
-      id: 'community',
+      id: 'community-management',
       title: 'Community Management',
-      description: 'Moderate community content and users',
+      description: 'Manage emotional support resources, meditation sessions, and approve stories',
       icon: Users,
-      color: 'bg-orange-500',
-      category: 'secondary'
+      color: 'bg-orange-500'
     },
     {
-      id: 'resources',
-      title: 'Resource Management',
-      description: 'Edit and manage safety resources',
+      id: 'safety-resources',
+      title: 'Safety Resources',
+      description: 'View safety resources directory',
       icon: BookOpen,
-      color: 'bg-teal-500',
-      category: 'secondary'
-    },
-    {
-      id: 'alerts',
-      title: 'Alert System',
-      description: 'Manage system-wide alerts and notifications',
-      icon: Bell,
-      color: 'bg-yellow-500',
-      category: 'secondary'
-    },
-    {
-      id: 'request',
-      title: 'Data Analytics',
-      description: 'Generate reports and analytics',
-      icon: BarChart3,
-      color: 'bg-indigo-500',
-      category: 'secondary'
+      color: 'bg-teal-500'
     }
   ];
-
-  const primaryFeatures = adminFeatures.filter(f => f.category === 'primary');
-  const secondaryFeatures = adminFeatures.filter(f => f.category === 'secondary');
 
   return (
     <div className="space-y-8">
@@ -95,11 +63,11 @@ const AdminHome = ({ onFeatureSelect }: AdminHomeProps) => {
         <p className="text-gray-600">Manage users, content, and system operations</p>
       </div>
 
-      {/* Primary Admin Features */}
+      {/* Admin Features */}
       <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Core Administration</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {primaryFeatures.map((feature) => {
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">Administration Tools</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {adminFeatures.map((feature) => {
             const Icon = feature.icon;
             return (
               <button
@@ -112,29 +80,6 @@ const AdminHome = ({ onFeatureSelect }: AdminHomeProps) => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
                 <p className="text-gray-600 text-sm">{feature.description}</p>
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Secondary Admin Features */}
-      <div>
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">Additional Tools</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {secondaryFeatures.map((feature) => {
-            const Icon = feature.icon;
-            return (
-              <button
-                key={feature.id}
-                onClick={() => onFeatureSelect(feature.id)}
-                className="bg-white rounded-xl shadow-md p-4 hover:shadow-lg transition-all duration-200 transform hover:scale-105 text-left"
-              >
-                <div className={`w-10 h-10 ${feature.color} rounded-lg flex items-center justify-center mb-3`}>
-                  <Icon className="w-5 h-5 text-white" />
-                </div>
-                <h3 className="text-md font-semibold text-gray-900 mb-1">{feature.title}</h3>
-                <p className="text-gray-600 text-xs">{feature.description}</p>
               </button>
             );
           })}

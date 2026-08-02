@@ -1,19 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, MapPin, AlertTriangle, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-
-interface SafeZone {
-  id: string;
-  name: string;
-  description: string;
-  zone_type: 'safe' | 'unsafe';
-  center_lat: number;
-  center_lng: number;
-  radius_meters: number;
-  is_active: boolean;
-  created_at: string;
-}
+import { safeZoneService } from '@/features/geofencing/services/safeZoneService';
+import type { SafeZone } from '@/features/geofencing/domain/types';
 
 const SafeZonesViewOnly = () => {
   const [safeZones, setSafeZones] = useState<SafeZone[]>([]);
@@ -22,25 +11,14 @@ const SafeZonesViewOnly = () => {
 
   useEffect(() => {
     fetchSafeZones();
+    return safeZoneService.subscribe('safe_zones-viewonly', () => {
+      void fetchSafeZones();
+    });
   }, []);
 
   const fetchSafeZones = async () => {
     try {
-      const { data, error } = await supabase
-        .from('safe_zones')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Type assertion to ensure zone_type is properly typed
-      const typedData = data?.map(zone => ({
-        ...zone,
-        zone_type: zone.zone_type as 'safe' | 'unsafe'
-      })) || [];
-      
-      setSafeZones(typedData);
+      setSafeZones(await safeZoneService.listActive());
     } catch (error: any) {
       toast({
         title: "Error",
@@ -110,11 +88,11 @@ const SafeZonesViewOnly = () => {
 
         <div className="space-y-4">
           {safeZones.map((zone) => {
-            const Icon = getZoneIcon(zone.zone_type);
+            const Icon = getZoneIcon(zone.zoneType);
             return (
-              <div key={zone.id} className={`border rounded-lg p-4 ${getZoneBgColor(zone.zone_type)}`}>
+              <div key={zone.id} className={`border rounded-lg p-4 ${getZoneBgColor(zone.zoneType)}`}>
                 <div className="flex items-start space-x-3">
-                  <Icon className={`w-6 h-6 ${getZoneColor(zone.zone_type)} mt-1`} />
+                  <Icon className={`w-6 h-6 ${getZoneColor(zone.zoneType)} mt-1`} />
                   <div className="flex-1">
                     <h3 className="font-bold text-gray-900 mb-1">{zone.name}</h3>
                     {zone.description && (
@@ -124,22 +102,22 @@ const SafeZonesViewOnly = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
                       <div>
                         <span className="font-medium">Location:</span>
-                        <div>{zone.center_lat.toFixed(4)}, {zone.center_lng.toFixed(4)}</div>
+                        <div>{zone.center.lat.toFixed(4)}, {zone.center.lng.toFixed(4)}</div>
                       </div>
                       <div>
                         <span className="font-medium">Radius:</span>
-                        <div>{zone.radius_meters}m</div>
+                        <div>{zone.radius}m</div>
                       </div>
                       <div>
                         <span className="font-medium">Type:</span>
-                        <div className="capitalize">{zone.zone_type} Zone</div>
+                        <div className="capitalize">{zone.zoneType} Zone</div>
                       </div>
                     </div>
                   </div>
                   
                   <button
                     onClick={() => {
-                      const url = `https://www.google.com/maps?q=${zone.center_lat},${zone.center_lng}`;
+                      const url = `https://www.google.com/maps?q=${zone.center.lat},${zone.center.lng}`;
                       window.open(url, '_blank');
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-all duration-200"

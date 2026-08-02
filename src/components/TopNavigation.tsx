@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { Shield, Menu, X } from 'lucide-react';
 import NavigationItems from '@/components/navigation/NavigationItems';
 import ProfileMenu from '@/components/navigation/ProfileMenu';
 import MobileMenu from '@/components/navigation/MobileMenu';
+import EvidenceQueueIndicator from '@/components/EvidenceQueueIndicator';
 
 interface TopNavigationProps {
   activeTab: string;
@@ -38,7 +39,8 @@ const TopNavigation = ({ activeTab, onTabChange }: TopNavigationProps) => {
           />
 
           {/* Profile Section */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            <EvidenceQueueIndicator />
             {/* Mobile menu button */}
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

@@ -2,8 +2,8 @@
 import React, { useState } from 'react';
 import { Send, AlertCircle, FileText, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 
 const DataRequest = () => {
   const [dataRequest, setDataRequest] = useState({

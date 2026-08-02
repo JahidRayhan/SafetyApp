@@ -1,22 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { BookOpen, Star, Tag, Clock, Plus, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
-
-interface Article {
-  id: string;
-  title: string;
-  content: string;
-  excerpt: string;
-  author: string;
-  category: string;
-  tags: string[];
-  is_featured: boolean;
-  created_at: string;
-}
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
+import { articleService } from '@/features/support/services/articleService';
+import type { SupportArticle as Article } from '@/features/support/domain/types';
 
 const SupportArticles = () => {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -47,14 +36,8 @@ const SupportArticles = () => {
 
   const fetchArticles = async () => {
     try {
-      const { data, error } = await supabase
-        .from('support_articles')
-        .select('*')
-        .order('is_featured', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setArticles(data || []);
+      const data = await articleService.list();
+      setArticles(data);
     } catch (error) {
       console.error('Error fetching articles:', error);
       toast({
@@ -72,21 +55,17 @@ const SupportArticles = () => {
     
     try {
       const tagsArray = newArticle.tags.split(',').map(tag => tag.trim()).filter(tag => tag);
-      
-      const { error } = await supabase
-        .from('support_articles')
-        .insert({
-          title: newArticle.title,
-          content: newArticle.content,
-          excerpt: newArticle.excerpt,
-          category: newArticle.category,
-          tags: tagsArray,
-          is_featured: newArticle.is_featured,
-          author: profile?.full_name || 'Anonymous',
-          created_by: user?.id
-        });
 
-      if (error) throw error;
+      await articleService.create({
+        title: newArticle.title,
+        content: newArticle.content,
+        excerpt: newArticle.excerpt,
+        category: newArticle.category,
+        tags: tagsArray,
+        is_featured: newArticle.is_featured,
+        author: profile?.fullName || 'Anonymous',
+        created_by: user?.id
+      });
 
       toast({
         title: "Success",

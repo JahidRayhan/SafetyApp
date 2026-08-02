@@ -1,22 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Play, Download, Calendar, User, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { evidenceService } from '@/features/evidence/services/evidenceService';
+import type { AdminRecordingSummary } from '@/features/evidence/domain/types';
 
-interface Recording {
-  id: string;
-  file_path: string;
-  file_type: 'audio' | 'video';
-  file_size: number;
-  duration_seconds: number;
-  recorded_at: string;
-  incident_id: string;
-  user_id: string;
-  user_profile?: {
-    full_name: string;
-    phone_number: string;
-  };
-}
+type Recording = AdminRecordingSummary;
 
 const UserRecordingsView = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -30,41 +18,8 @@ const UserRecordingsView = () => {
 
   const fetchRecordings = async () => {
     try {
-      const { data, error } = await supabase
-        .from('recordings')
-        .select(`
-          id,
-          file_path,
-          file_type,
-          file_size,
-          duration_seconds,
-          recorded_at,
-          incident_id,
-          user_id
-        `)
-        .order('recorded_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Get user profiles separately to avoid join issues
-      const userIds = [...new Set(data?.map(r => r.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone_number')
-        .in('id', userIds);
-
-      const profileMap = profiles?.reduce((acc, profile) => {
-        acc[profile.id] = profile;
-        return acc;
-      }, {} as Record<string, any>) || {};
-
-      const recordingsWithProfiles = data?.map(recording => ({
-        ...recording,
-        file_type: recording.file_type as 'audio' | 'video',
-        user_profile: profileMap[recording.user_id] || { full_name: 'Unknown User', phone_number: 'Not provided' }
-      })) || [];
-      
-      setRecordings(recordingsWithProfiles);
+      const data = await evidenceService.listAllForAdmin();
+      setRecordings(data);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -78,8 +33,8 @@ const UserRecordingsView = () => {
 
   const filteredRecordings = recordings.filter(recording =>
     !searchUser || 
-    recording.user_profile?.full_name?.toLowerCase().includes(searchUser.toLowerCase()) ||
-    recording.user_profile?.phone_number?.includes(searchUser)
+    recording.userProfile?.fullName?.toLowerCase().includes(searchUser.toLowerCase()) ||
+    recording.userProfile?.phoneNumber?.includes(searchUser)
   );
 
   const formatFileSize = (bytes: number) => {
@@ -131,8 +86,8 @@ const UserRecordingsView = () => {
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
-                    <div className={`p-2 rounded-lg ${recording.file_type === 'audio' ? 'bg-blue-100' : 'bg-purple-100'}`}>
-                      {recording.file_type === 'audio' ? (
+                    <div className={`p-2 rounded-lg ${recording.fileType === 'audio' ? 'bg-blue-100' : 'bg-purple-100'}`}>
+                      {recording.fileType === 'audio' ? (
                         <FileText className="w-4 h-4 text-blue-600" />
                       ) : (
                         <Play className="w-4 h-4 text-purple-600" />
@@ -140,16 +95,16 @@ const UserRecordingsView = () => {
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-900 capitalize">
-                        {recording.file_type} Recording
+                        {recording.fileType} Recording
                       </h3>
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
                         <div className="flex items-center space-x-1">
                           <User className="w-4 h-4" />
-                          <span>{recording.user_profile?.full_name || 'Unknown User'}</span>
+                          <span>{recording.userProfile?.fullName || 'Unknown User'}</span>
                         </div>
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
-                          <span>{new Date(recording.recorded_at).toLocaleDateString()}</span>
+                          <span>{new Date(recording.recordedAt).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </div>
@@ -158,19 +113,19 @@ const UserRecordingsView = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mt-3">
                     <div>
                       <span className="font-medium">Duration:</span>
-                      <div>{recording.duration_seconds ? formatDuration(recording.duration_seconds) : 'Unknown'}</div>
+                      <div>{recording.durationSeconds ? formatDuration(recording.durationSeconds) : 'Unknown'}</div>
                     </div>
                     <div>
                       <span className="font-medium">Size:</span>
-                      <div>{recording.file_size ? formatFileSize(recording.file_size) : 'Unknown'}</div>
+                      <div>{recording.fileSize ? formatFileSize(recording.fileSize) : 'Unknown'}</div>
                     </div>
                     <div>
                       <span className="font-medium">Phone:</span>
-                      <div>{recording.user_profile?.phone_number || 'Not provided'}</div>
+                      <div>{recording.userProfile?.phoneNumber || 'Not provided'}</div>
                     </div>
                     <div>
                       <span className="font-medium">Incident ID:</span>
-                      <div className="font-mono text-xs">{recording.incident_id.slice(0, 8)}...</div>
+                      <div className="font-mono text-xs">{recording.incidentId.slice(0, 8)}...</div>
                     </div>
                   </div>
                 </div>

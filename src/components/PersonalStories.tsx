@@ -1,449 +1,396 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { Users, Plus, Heart, Edit3, Eye, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { Heart, Share2, User, Plus, Eye, MessageSquare } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
-import UserStoryForm from './UserStoryForm';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { storyService, type Story as DomainStory } from '@/features/community';
 
-interface PersonalStory {
+interface Story {
   id: string;
   title: string;
   content: string;
-  is_anonymous: boolean;
-  author_name: string | null;
+  author_name: string;
   story_type: string;
-  status: string;
   tags: string[];
   likes_count: number;
   created_at: string;
-  user_id: string | null;
+  is_anonymous: boolean;
+  status: string;
+  user_id: string;
 }
 
-interface StoryLike {
-  story_id: string;
-}
+const toViewModel = (story: DomainStory): Story => ({
+  id: story.id,
+  title: story.title,
+  content: story.content,
+  author_name: story.authorName ?? '',
+  story_type: story.storyType,
+  tags: story.tags,
+  likes_count: story.likesCount,
+  created_at: story.createdAt,
+  is_anonymous: story.isAnonymous,
+  status: story.status,
+  user_id: story.userId ?? '',
+});
 
 const PersonalStories = () => {
-  const [stories, setStories] = useState<PersonalStory[]>([]);
-  const [userLikes, setUserLikes] = useState<StoryLike[]>([]);
+  const [stories, setStories] = useState<Story[]>([]);
+  const [myStories, setMyStories] = useState<Story[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedStory, setSelectedStory] = useState<PersonalStory | null>(null);
-  const [activeTab, setActiveTab] = useState<'read' | 'write' | 'admin-create'>('read');
-  const [adminFormData, setAdminFormData] = useState({
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'my'>('all');
+  const [newStory, setNewStory] = useState({
     title: '',
     content: '',
-    story_type: 'healing',
+    story_type: 'survival',
+    author_name: '',
+    is_anonymous: false,
     tags: [] as string[]
   });
+  
   const { toast } = useToast();
   const { user } = useAuth();
-  const { profile } = useProfile(user);
-  const userRole = profile?.role || 'user';
-
-  const storyTypes = ['survival', 'healing', 'empowerment', 'warning', 'hope'];
 
   useEffect(() => {
-    fetchStories();
-    fetchUserLikes();
-  }, []);
+    fetchAllStories();
+    if (user) {
+      fetchMyStories();
+    }
+  }, [user]);
 
-  const fetchStories = async () => {
+  const fetchAllStories = async () => {
     try {
-      const { data, error } = await supabase
-        .from('personal_stories')
-        .select('*')
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false });
+      console.log('Fetching all approved stories...');
 
-      if (error) throw error;
-      setStories(data || []);
-    } catch (error) {
-      console.error('Error fetching stories:', error);
+      const data = await storyService.listPublic();
+
+      console.log('Fetched stories:', data);
+      setStories(data.map(toViewModel));
+    } catch (error: any) {
+      console.error('Error loading stories:', error);
       toast({
         title: "Error",
-        description: "Failed to load stories. Please try again.",
+        description: "Failed to load stories.",
         variant: "destructive",
       });
+    }
+  };
+
+  const fetchMyStories = async () => {
+    if (!user) return;
+    
+    try {
+      console.log('Fetching user stories...');
+
+      const data = await storyService.listMine(user.id);
+
+      console.log('Fetched user stories:', data);
+      setMyStories(data.map(toViewModel));
+    } catch (error: any) {
+      console.error('Error loading my stories:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchUserLikes = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('story_likes')
-        .select('story_id')
-        .eq('user_id', user.id);
-
-      if (error) throw error;
-      setUserLikes(data || []);
-    } catch (error) {
-      console.error('Error fetching user likes:', error);
-    }
-  };
-
-  const submitAdminStory = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('No user found');
-
-      const storyData = {
-        title: adminFormData.title,
-        content: adminFormData.content,
-        story_type: adminFormData.story_type,
-        is_anonymous: false,
-        author_name: null,
-        tags: adminFormData.tags,
-        user_id: user.id,
-        status: 'approved' // Auto-approve for admins
-      };
-
-      const { error } = await supabase
-        .from('personal_stories')
-        .insert(storyData);
-
-      if (error) throw error;
-
+  const addStory = async () => {
+    if (!user) {
       toast({
-        title: "Story Published",
-        description: "Your story has been published successfully!",
+        title: "Authentication Required",
+        description: "Please sign in to share your story.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!newStory.title || !newStory.content) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in both title and content.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      console.log('Adding new story:', newStory);
+
+      await storyService.create(user.id, {
+        title: newStory.title,
+        content: newStory.content,
+        storyType: newStory.story_type,
+        authorName: newStory.is_anonymous ? 'Anonymous' : (newStory.author_name || 'SafeGuard User'),
+        isAnonymous: newStory.is_anonymous,
+        tags: newStory.tags,
       });
 
-      setAdminFormData({
+      setNewStory({
         title: '',
         content: '',
-        story_type: 'healing',
+        story_type: 'survival',
+        author_name: '',
+        is_anonymous: false,
         tags: []
       });
-      setActiveTab('read');
-      fetchStories();
-    } catch (error) {
+      setShowAddForm(false);
+      fetchMyStories(); // Refresh my stories
+      
+      toast({
+        title: "Story Submitted",
+        description: "Your story has been submitted for review and will be visible once approved.",
+      });
+    } catch (error: any) {
       console.error('Error submitting story:', error);
       toast({
         title: "Error",
-        description: "Failed to submit story. Please try again.",
+        description: error.message,
         variant: "destructive",
       });
     }
   };
 
-  const toggleLike = async (storyId: string) => {
+  const likeStory = async (storyId: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please sign in to like stories.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const nowLiked = await storyService.toggleLike(user.id, storyId);
 
-      const isLiked = userLikes.some(like => like.story_id === storyId);
-
-      if (isLiked) {
-        const { error } = await supabase
-          .from('story_likes')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('story_id', storyId);
-
-        if (error) throw error;
-        setUserLikes(userLikes.filter(like => like.story_id !== storyId));
+      if (!nowLiked) {
+        toast({
+          title: "Like Removed",
+          description: "You've removed your like from this story.",
+        });
       } else {
-        const { error } = await supabase
-          .from('story_likes')
-          .insert({ user_id: user.id, story_id: storyId });
-
-        if (error) throw error;
-        setUserLikes([...userLikes, { story_id: storyId }]);
+        toast({
+          title: "Story Liked",
+          description: "Thank you for supporting this story!",
+        });
       }
 
-      setStories(stories.map(story => 
-        story.id === storyId 
-          ? { ...story, likes_count: story.likes_count + (isLiked ? -1 : 1) }
-          : story
-      ));
-    } catch (error) {
-      console.error('Error toggling like:', error);
+      // Refresh stories
+      fetchAllStories();
+      fetchMyStories();
+    } catch (error: any) {
+      console.error('Error liking story:', error);
       toast({
         title: "Error",
-        description: "Failed to update like. Please try again.",
+        description: "Failed to update like status.",
         variant: "destructive",
       });
     }
   };
 
-  if (loading && activeTab === 'read') {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'bg-green-100 text-green-800';
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'rejected':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const displayStories = activeTab === 'all' ? stories : myStories;
+
+  if (loading) {
     return (
       <div className="bg-white rounded-xl shadow-lg p-6">
         <div className="animate-pulse space-y-4">
-          <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
           <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
+            <div className="h-32 bg-gray-200 rounded"></div>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // Admin create form
-  if (activeTab === 'admin-create' && (userRole === 'admin' || userRole === 'govt_admin')) {
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-6">Create Support Story</h3>
-        
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-            <input
-              type="text"
-              value={adminFormData.title}
-              onChange={(e) => setAdminFormData({ ...adminFormData, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Give your story a meaningful title"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Story Type</label>
-            <select
-              value={adminFormData.story_type}
-              onChange={(e) => setAdminFormData({ ...adminFormData, story_type: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            >
-              {storyTypes.map(type => (
-                <option key={type} value={type} className="capitalize">{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Your Story</label>
-            <textarea
-              value={adminFormData.content}
-              onChange={(e) => setAdminFormData({ ...adminFormData, content: e.target.value })}
-              rows={10}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Create supportive content to help and inspire users..."
-              required
-            />
-          </div>
-
-          <div className="flex space-x-3">
-            <button
-              onClick={submitAdminStory}
-              disabled={!adminFormData.title.trim() || !adminFormData.content.trim()}
-              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              <CheckCircle className="w-4 h-4" />
-              <span>Publish Story</span>
-            </button>
-            
-            <button
-              onClick={() => setActiveTab('read')}
-              className="flex items-center space-x-2 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors"
-            >
-              <XCircle className="w-4 h-4" />
-              <span>Cancel</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // User write form
-  if (activeTab === 'write' && userRole === 'user') {
-    return <UserStoryForm onStorySubmitted={() => setActiveTab('read')} />;
-  }
-
-  if (selectedStory) {
-    return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <button
-          onClick={() => setSelectedStory(null)}
-          className="text-purple-600 hover:text-purple-700 mb-4 flex items-center"
-        >
-          ← Back to Stories
-        </button>
-        
-        <article className="prose max-w-none">
-          <div className="flex items-center space-x-2 mb-4">
-            <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium capitalize">
-              {selectedStory.story_type}
-            </span>
-          </div>
-          
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            {selectedStory.title}
-          </h1>
-          
-          <div className="flex items-center text-gray-500 text-sm mb-6">
-            <span>
-              By {selectedStory.is_anonymous 
-                ? (selectedStory.author_name || 'Anonymous') 
-                : 'Community Member'}
-            </span>
-            <span className="mx-2">•</span>
-            <Clock className="w-4 h-4 mr-1" />
-            <span>{new Date(selectedStory.created_at).toLocaleDateString()}</span>
-          </div>
-          
-          <div className="text-gray-700 whitespace-pre-wrap leading-relaxed mb-6">
-            {selectedStory.content}
-          </div>
-          
-          <div className="flex items-center space-x-4 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => toggleLike(selectedStory.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                userLikes.some(like => like.story_id === selectedStory.id)
-                  ? 'bg-red-100 text-red-700'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Heart className={`w-4 h-4 ${
-                userLikes.some(like => like.story_id === selectedStory.id) ? 'fill-current' : ''
-              }`} />
-              <span>{selectedStory.likes_count} likes</span>
-            </button>
-          </div>
-        </article>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {/* Tab Navigation */}
       <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex space-x-4 mb-4">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-gray-900">Personal Stories</h2>
           <button
-            onClick={() => setActiveTab('read')}
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-purple-600 hover:bg-purple-700 text-white p-2 rounded-lg transition-all duration-200"
+          >
+            <Plus className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex space-x-2 mb-6">
+          <button
+            onClick={() => setActiveTab('all')}
             className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-              activeTab === 'read'
-                ? 'bg-purple-600 text-white'
+              activeTab === 'all'
+                ? 'bg-purple-100 text-purple-700'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
-            <Eye className="w-4 h-4 inline mr-2" />
-            Read Stories
+            All Stories ({stories.length})
           </button>
-          
-          {userRole === 'user' && (
+          {user && (
             <button
-              onClick={() => setActiveTab('write')}
+              onClick={() => setActiveTab('my')}
               className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'write'
-                  ? 'bg-purple-600 text-white'
+                activeTab === 'my'
+                  ? 'bg-purple-100 text-purple-700'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              <Plus className="w-4 h-4 inline mr-2" />
-              Share Story
-            </button>
-          )}
-
-          {(userRole === 'admin' || userRole === 'govt_admin') && (
-            <button
-              onClick={() => setActiveTab('admin-create')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                activeTab === 'admin-create'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <Plus className="w-4 h-4 inline mr-2" />
-              Create Story
+              My Stories ({myStories.length})
             </button>
           )}
         </div>
-        
-        <p className="text-gray-600">
-          {activeTab === 'read' 
-            ? 'Read inspiring stories from our community members who have overcome challenges.'
-            : userRole === 'user'
-              ? 'Share your experience to inspire and help others in their journey.'
-              : 'Create supportive content to help users in their emotional journey.'}
-        </p>
-      </div>
 
-      {/* Content */}
-      {activeTab === 'read' && (
-        <div className="space-y-4">
-          {stories.map((story) => (
-            <div
-              key={story.id}
-              className="bg-white rounded-xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow"
-              onClick={() => setSelectedStory(story)}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <span className="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm font-medium capitalize">
-                  {story.story_type}
-                </span>
-                <div className="flex items-center text-gray-500 text-sm">
-                  <Clock className="w-4 h-4 mr-1" />
-                  {new Date(story.created_at).toLocaleDateString()}
-                </div>
+        {/* Add Story Form */}
+        {showAddForm && (
+          <div className="bg-gray-50 rounded-lg p-4 mb-6 space-y-4">
+            <h3 className="font-medium text-gray-900">Share Your Story</h3>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="Story Title"
+                value={newStory.title}
+                onChange={(e) => setNewStory({...newStory, title: e.target.value})}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              
+              <textarea
+                placeholder="Share your story..."
+                value={newStory.content}
+                onChange={(e) => setNewStory({...newStory, content: e.target.value})}
+                rows={4}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              />
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <select
+                  value={newStory.story_type}
+                  onChange={(e) => setNewStory({...newStory, story_type: e.target.value})}
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                >
+                  <option value="survival">Survival Story</option>
+                  <option value="recovery">Recovery Journey</option>
+                  <option value="empowerment">Empowerment</option>
+                  <option value="support">Support & Help</option>
+                  <option value="awareness">Awareness</option>
+                </select>
+                
+                <input
+                  type="text"
+                  placeholder="Your Name (optional if anonymous)"
+                  value={newStory.author_name}
+                  onChange={(e) => setNewStory({...newStory, author_name: e.target.value})}
+                  disabled={newStory.is_anonymous}
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100"
+                />
               </div>
               
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {story.title}
-              </h3>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="anonymous"
+                  checked={newStory.is_anonymous}
+                  onChange={(e) => setNewStory({...newStory, is_anonymous: e.target.checked})}
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                />
+                <label htmlFor="anonymous" className="text-sm text-gray-700">
+                  Post anonymously
+                </label>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={addStory}
+                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-all duration-200"
+              >
+                Share Story
+              </button>
+              <button
+                onClick={() => setShowAddForm(false)}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-all duration-200"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Stories List */}
+        <div className="space-y-4">
+          {displayStories.map((story) => (
+            <div key={story.id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-all duration-200">
+              <div className="flex items-start justify-between mb-3">
+                <div>
+                  <h3 className="font-bold text-gray-900 mb-1">{story.title}</h3>
+                  <div className="flex items-center space-x-3 text-sm text-gray-600">
+                    <div className="flex items-center space-x-1">
+                      <User className="w-4 h-4" />
+                      <span>{story.author_name}</span>
+                    </div>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(story.status)}`}>
+                      {story.status}
+                    </span>
+                    <span className="text-gray-500">
+                      {new Date(story.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+                
+                {activeTab === 'all' && (
+                  <button
+                    onClick={() => likeStory(story.id)}
+                    className="flex items-center space-x-1 text-red-600 hover:text-red-700 transition-colors"
+                  >
+                    <Heart className="w-4 h-4" />
+                    <span>{story.likes_count}</span>
+                  </button>
+                )}
+              </div>
               
-              <p className="text-gray-600 mb-4 line-clamp-3">
-                {story.content.length > 200 
-                  ? `${story.content.substring(0, 200)}...` 
-                  : story.content}
-              </p>
+              <p className="text-gray-700 leading-relaxed mb-3">{story.content}</p>
               
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500">
-                  By {story.is_anonymous 
-                    ? (story.author_name || 'Anonymous') 
-                    : 'Community Member'}
-                </span>
-                
-                <div className="flex items-center space-x-2 text-gray-500 text-sm">
-                  <Heart className="w-4 h-4" />
-                  <span>{story.likes_count}</span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="bg-purple-100 text-purple-800 text-xs px-2 py-1 rounded-full">
+                    {story.story_type}
+                  </span>
+                  {story.tags?.map((tag, index) => (
+                    <span key={index} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">
+                      {tag}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
           ))}
-        </div>
-      )}
-
-      {stories.length === 0 && activeTab === 'read' && (
-        <div className="bg-white rounded-xl shadow-lg p-12 text-center">
-          <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">No Stories Yet</h3>
-          <p className="text-gray-600 mb-4">
-            {userRole === 'user' 
-              ? 'Be the first to share your story and inspire others in our community.'
-              : 'Create the first supportive story for your community.'}
-          </p>
-          {userRole === 'user' ? (
-            <button
-              onClick={() => setActiveTab('write')}
-              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors mx-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Share Your Story</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setActiveTab('admin-create')}
-              className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors mx-auto"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Create Story</span>
-            </button>
+          
+          {displayStories.length === 0 && (
+            <div className="text-center py-8">
+              <MessageSquare className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600">
+                {activeTab === 'all' 
+                  ? 'No approved stories yet. Be the first to share your experience!' 
+                  : 'You haven\'t shared any stories yet. Click the + button to get started.'}
+              </p>
+            </div>
           )}
         </div>
-      )}
+      </div>
     </div>
   );
 };

@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
+import { useIOSFeatures } from '@/hooks/useIOSFeatures';
 import AuthForm from '@/components/AuthForm';
 import TopNavigation from '@/components/TopNavigation';
 import LandingPage from '@/components/LandingPage';
@@ -15,10 +15,12 @@ import ScreamDetection from '@/components/ScreamDetection';
 import LocationTracker from '@/components/LocationTracker';
 import { useToast } from '@/hooks/use-toast';
 import { useLocationAlerts } from '@/hooks/useLocationAlerts';
+import AccountSettings from '@/components/settings/AccountSettings';
 
 const Index = () => {
   const { user, loading } = useAuth();
   const { profile } = useProfile(user);
+  const { isIOS } = useIOSFeatures();
   const [activeTab, setActiveTab] = useState('home');
   const [showAuth, setShowAuth] = useState(false);
   const [isSOSActive, setIsSOSActive] = useState(false);
@@ -36,7 +38,9 @@ const Index = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emergency-50 to-emergency-100 flex items-center justify-center">
-        <div className="animate-pulse text-emergency-600 text-lg">Loading SafeGuard...</div>
+        <div className="animate-pulse text-emergency-600 text-lg">
+          Loading SafeGuard{isIOS() ? ' for iOS' : ''}...
+        </div>
       </div>
     );
   }
@@ -68,7 +72,9 @@ const Index = () => {
               <GovernmentAdminHome onFeatureSelect={setActiveTab} />
             ) : (
               <>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome to SafeGuard</h1>
+                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                  Welcome to SafeGuard{isIOS() ? ' for iOS' : ''}
+                </h1>
                 <p className="text-gray-600 mb-8">Your personal safety dashboard</p>
                 <CoreFeatures onFeatureSelect={setActiveTab} />
               </>
@@ -100,6 +106,14 @@ const Index = () => {
       return (
         <div className="container mx-auto px-4 py-6">
           <Community />
+        </div>
+      );
+    }
+
+    if (activeTab === 'account-settings') {
+      return (
+        <div className="container mx-auto px-4 py-6">
+          <AccountSettings />
         </div>
       );
     }

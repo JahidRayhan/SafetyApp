@@ -2,7 +2,7 @@
 import React, { useState, useRef } from 'react';
 import { Video, Square, Play, Pause, Upload } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { evidenceService } from '@/features/evidence/services/evidenceService';
 
 interface VideoRecorderProps {
   incidentId?: string;
@@ -104,30 +104,12 @@ const VideoRecorder = ({ incidentId, onRecordingComplete }: VideoRecorderProps) 
     try {
       const videoBlob = new Blob(chunksRef.current, { type: 'video/webm' });
       const fileName = `${Date.now()}_video.webm`;
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user.user) throw new Error('Not authenticated');
+      const videoFile = new File([videoBlob], fileName, { type: 'video/webm' });
 
-      const filePath = `${user.user.id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('recordings')
-        .upload(filePath, videoBlob);
-
-      if (uploadError) throw uploadError;
-
-      const { error: dbError } = await supabase
-        .from('recordings')
-        .insert({
-          incident_id: incidentId,
-          user_id: user.user.id,
-          file_path: filePath,
-          file_type: 'video',
-          file_size: videoBlob.size,
-          duration_seconds: Math.round((videoRef.current?.duration || 0))
-        });
-
-      if (dbError) throw dbError;
+      const { filePath } = await evidenceService.uploadOne(videoFile, {
+        incidentId,
+        durationSeconds: Math.round(videoRef.current?.duration || 0),
+      });
 
       toast({
         title: "Video Uploaded",

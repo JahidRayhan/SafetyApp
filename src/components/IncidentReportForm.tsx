@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, MapPin, Camera, Mic, Video, User, UserX, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { incidentService } from '@/features/incidents';
 
 const IncidentReportForm = () => {
   const [title, setTitle] = useState('');
@@ -106,27 +106,18 @@ const IncidentReportForm = () => {
     setLoading(true);
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      
-      const reportData = {
+      await incidentService.create({
         title,
-        incident_type: incidentType,
+        incidentType,
         description,
-        location_lat: location.lat,
-        location_lng: location.lng,
-        location_description: locationDescription,
-        is_anonymous: isAnonymous,
-        severity_level: severityLevel,
+        locationLat: location.lat,
+        locationLng: location.lng,
+        locationDescription,
+        isAnonymous,
+        severityLevel,
         tags,
-        media_files: mediaFiles.map(file => ({ name: file.name, size: file.size, type: file.type })),
-        user_id: isAnonymous ? null : user.user?.id
-      };
-
-      const { error } = await supabase
-        .from('incident_reports')
-        .insert(reportData);
-
-      if (error) throw error;
+        mediaFiles: mediaFiles.map(file => ({ name: file.name, size: file.size, type: file.type })),
+      });
 
       toast({
         title: "Report submitted successfully",
@@ -210,7 +201,20 @@ const IncidentReportForm = () => {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Severity Level
           </label>
-          <div className="flex space-x-2">
+          <div className="block md:hidden">
+            <select
+              value={severityLevel}
+              onChange={(e) => setSeverityLevel(Number(e.target.value))}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emergency-500 focus:border-emergency-500"
+            >
+              {[1, 2, 3, 4, 5].map(level => (
+                <option key={level} value={level}>
+                  {level} - {severityLabels[level]}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="hidden md:flex space-x-2">
             {[1, 2, 3, 4, 5].map(level => (
               <button
                 key={level}

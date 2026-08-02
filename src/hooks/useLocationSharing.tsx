@@ -1,7 +1,8 @@
 
 import { useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { contactService } from '@/features/emergency-contacts/services/contactService';
+import { locationHistoryService } from '@/features/location/services/locationHistoryService';
 import { useActivityLogger } from '@/components/ActivityLog';
 
 export const useLocationSharing = () => {
@@ -10,9 +11,6 @@ export const useLocationSharing = () => {
 
   const shareLocationWithContacts = useCallback(async (incidentId?: string) => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
-
       // Get current location
       if (!navigator.geolocation) {
         throw new Error('Geolocation not supported');
@@ -22,14 +20,7 @@ export const useLocationSharing = () => {
         async (position) => {
           const { latitude, longitude, accuracy } = position.coords;
 
-          // Get emergency contacts
-          const { data: contacts, error: contactsError } = await supabase
-            .from('emergency_contacts')
-            .select('*')
-            .eq('user_id', user.user!.id)
-            .order('priority');
-
-          if (contactsError) throw contactsError;
+          const contacts = await contactService.list();
 
           // Create location sharing message
           const locationUrl = `https://maps.google.com/?q=${latitude},${longitude}`;
@@ -57,13 +48,7 @@ export const useLocationSharing = () => {
             description: `Your location has been shared with ${contacts?.length || 0} emergency contacts.`,
           });
 
-          // Update location history
-          await supabase.from('location_history').insert({
-            user_id: user.user.id,
-            lat: latitude,
-            lng: longitude,
-            accuracy
-          });
+          await locationHistoryService.append({ lat: latitude, lng: longitude, accuracy });
 
           return { latitude, longitude, accuracy };
         },

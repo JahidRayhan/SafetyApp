@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { useWebPushNotifications } from '@/hooks/useWebPushNotifications';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/shared/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/shared/ui/card';
 import { Bell, BellRing, AlertTriangle } from 'lucide-react';
 
 const NotificationSettings = () => {

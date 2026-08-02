@@ -1,21 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Phone, Mail, Search, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { contactService } from '@/features/emergency-contacts/services/contactService';
+import type { AdminContactSummary } from '@/features/emergency-contacts/domain/types';
 
-interface EmergencyContact {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  relationship: string;
-  priority: number;
-  user_id: string;
-  user_profile?: {
-    full_name: string;
-    phone_number: string;
-  };
-}
+type EmergencyContact = AdminContactSummary;
 
 const UserContactsView = () => {
   const [contacts, setContacts] = useState<EmergencyContact[]>([]);
@@ -29,40 +18,8 @@ const UserContactsView = () => {
 
   const fetchUserContacts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('emergency_contacts')
-        .select(`
-          id,
-          name,
-          phone,
-          email,
-          relationship,
-          priority,
-          user_id,
-          created_at
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      // Get user profiles separately to avoid join issues
-      const userIds = [...new Set(data?.map(c => c.user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, phone_number')
-        .in('id', userIds);
-
-      const profileMap = profiles?.reduce((acc, profile) => {
-        acc[profile.id] = profile;
-        return acc;
-      }, {} as Record<string, any>) || {};
-
-      const contactsWithProfiles = data?.map(contact => ({
-        ...contact,
-        user_profile: profileMap[contact.user_id] || { full_name: 'Unknown User', phone_number: 'Not provided' }
-      })) || [];
-      
-      setContacts(contactsWithProfiles);
+      const data = await contactService.listAllForAdmin();
+      setContacts(data);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -76,16 +33,16 @@ const UserContactsView = () => {
 
   const filteredContacts = contacts.filter(contact =>
     !searchUser || 
-    contact.user_profile?.full_name?.toLowerCase().includes(searchUser.toLowerCase()) ||
-    contact.user_profile?.phone_number?.includes(searchUser)
+    contact.userProfile?.fullName?.toLowerCase().includes(searchUser.toLowerCase()) ||
+    contact.userProfile?.phoneNumber?.includes(searchUser)
   );
 
   // Group contacts by user
   const groupedContacts = filteredContacts.reduce((acc, contact) => {
-    const userId = contact.user_id;
+    const userId = contact.userId;
     if (!acc[userId]) {
       acc[userId] = {
-        user: contact.user_profile,
+        user: contact.userProfile,
         contacts: []
       };
     }
@@ -133,10 +90,10 @@ const UserContactsView = () => {
             <div key={userId} className="border border-gray-200 rounded-lg p-4">
               <div className="mb-4 pb-3 border-b border-gray-100">
                 <h3 className="font-bold text-gray-900 text-lg">
-                  {user?.full_name || 'Unknown User'}
+                  {user?.fullName || 'Unknown User'}
                 </h3>
                 <p className="text-gray-600 text-sm">
-                  User Phone: {user?.phone_number || 'Not provided'}
+                  User Phone: {user?.phoneNumber || 'Not provided'}
                 </p>
                 <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full mt-1">
                   {contacts.length} emergency contact{contacts.length !== 1 ? 's' : ''}

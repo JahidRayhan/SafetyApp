@@ -1,117 +1,151 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { User, Save } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { profileService } from '@/features/profile/services/profileService';
+import { panelBase, panelHeader, rowStart, stackLoose } from '@/shared/ui/styles';
 
 const ProfileSettings = () => {
-  const { user } = useAuth();
-  const { profile, updateProfile } = useProfile(user);
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    phone_number: '',
-    email: ''
+  const [form, setForm] = useState({
+    fullName: '',
+    phoneNumber: '',
+    emergencyPlan: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
-    if (profile && user) {
-      setFormData({
-        full_name: profile.full_name || '',
-        phone_number: profile.phone_number || '',
-        email: user.email || ''
-      });
-    }
-  }, [profile, user]);
+    if (!user) return;
+    let cancelled = false;
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const success = await updateProfile({
-        full_name: formData.full_name,
-        phone_number: formData.phone_number
-      });
-
-      if (success) {
-        toast({
-          title: "Profile Updated",
-          description: "Your profile information has been saved successfully.",
+    profileService
+      .find(user.id)
+      .then((profile) => {
+        if (cancelled || !profile) return;
+        setForm({
+          fullName: profile.fullName ?? '',
+          phoneNumber: profile.phoneNumber ?? '',
+          emergencyPlan: profile.emergencyPlan ?? '',
         });
-      } else {
-        throw new Error('Failed to update profile');
-      }
-    } catch (error: any) {
+      })
+      .catch(() => {
+        toast({
+          title: 'Error',
+          description: 'Failed to load profile information.',
+          variant: 'destructive',
+        });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user, toast]);
+
+  const saveProfile = async () => {
+    if (!user) return;
+    setSaving(true);
+    try {
+      await profileService.update(user.id, {
+        fullName: form.fullName,
+        phoneNumber: form.phoneNumber,
+        emergencyPlan: form.emergencyPlan,
+      });
       toast({
-        title: "Error",
-        description: "Failed to update profile. Please try again.",
-        variant: "destructive",
+        title: 'Profile Updated',
+        description: 'Your profile information has been saved successfully.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Unable to save profile.',
+        variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className={panelBase}>
+        <div className="animate-pulse space-y-4">
+          <div className="h-6 bg-muted rounded w-1/3" />
+          <div className="space-y-3">
+            <div className="h-10 bg-muted rounded" />
+            <div className="h-10 bg-muted rounded" />
+            <div className="h-20 bg-muted rounded" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="flex items-center space-x-3 mb-6">
+    <div className={panelBase}>
+      <div className={`${rowStart} mb-6`}>
         <User className="w-6 h-6 text-blue-600" />
-        <h2 className="text-xl font-bold text-gray-900">Profile Information</h2>
+        <h2 className={panelHeader}>Profile Information</h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <div className={stackLoose}>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="full-name" className="block text-sm font-medium text-gray-700 mb-2">
             Full Name
           </label>
           <input
+            id="full-name"
             type="text"
-            value={formData.full_name}
-            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+            value={form.fullName}
+            onChange={(e) => setForm({ ...form, fullName: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
+            placeholder="Enter your full name"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="phone-number" className="block text-sm font-medium text-gray-700 mb-2">
             Phone Number
           </label>
           <input
+            id="phone-number"
             type="tel"
-            value={formData.phone_number}
-            onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
+            value={form.phoneNumber}
+            onChange={(e) => setForm({ ...form, phoneNumber: e.target.value })}
             className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Enter your phone number"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Email Address
+          <label htmlFor="emergency-plan-summary" className="block text-sm font-medium text-gray-700 mb-2">
+            Emergency Plan
           </label>
-          <input
-            type="email"
-            value={formData.email}
-            disabled
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 text-gray-500"
+          <textarea
+            id="emergency-plan-summary"
+            rows={4}
+            value={form.emergencyPlan}
+            onChange={(e) => setForm({ ...form, emergencyPlan: e.target.value })}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder="Describe what should happen if you trigger an alert"
           />
-          <p className="text-xs text-gray-500 mt-1">Email cannot be changed from this page</p>
         </div>
 
-        <div className="pt-4">
+        <div className="flex justify-end">
           <button
-            type="submit"
-            disabled={loading}
-            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+            onClick={saveProfile}
+            disabled={saving}
+            className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-2 rounded-lg transition-colors"
           >
             <Save className="w-4 h-4" />
-            <span>{loading ? 'Saving...' : 'Save Changes'}</span>
+            <span>{saving ? 'Saving...' : 'Save Profile'}</span>
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 };

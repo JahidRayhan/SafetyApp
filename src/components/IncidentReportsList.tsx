@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, MapPin, Clock, AlertTriangle, Eye, User, UserX } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { incidentService } from '@/features/incidents';
 
 const IncidentReportsList = () => {
   const [reports, setReports] = useState([]);
@@ -16,19 +16,8 @@ const IncidentReportsList = () => {
 
   const fetchReports = async () => {
     try {
-      let query = supabase
-        .from('incident_reports')
-        .select('*')
-        .order('reported_at', { ascending: false });
-
-      if (filter !== 'all') {
-        query = query.eq('incident_type', filter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setReports(data || []);
+      const data = await incidentService.list(filter);
+      setReports(data);
     } catch (error) {
       console.error('Error fetching reports:', error);
       toast({
@@ -113,25 +102,25 @@ const IncidentReportsList = () => {
                 <div className="flex-1">
                   <h3 className="text-lg font-semibold text-gray-900">{report.title}</h3>
                   <div className="flex items-center space-x-4 mt-1">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(report.severity_level)}`}>
-                      Severity {report.severity_level}
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSeverityColor(report.severity)}`}>
+                      Severity {report.severity}
                     </span>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(report.status)}`}>
-                      {report.status.replace('_', ' ').toUpperCase()}
+                      {(report.status ?? '').replace('_', ' ').toUpperCase()}
                     </span>
                     <span className="text-sm text-gray-600 capitalize">
-                      {report.incident_type.replace('_', ' ')}
+                      {report.incidentType.replace('_', ' ')}
                     </span>
                   </div>
                 </div>
                 
                 <div className="flex items-center space-x-2 text-sm text-gray-500">
-                  {report.is_anonymous ? (
+                  {report.isAnonymous ? (
                     <UserX className="w-4 h-4" />
                   ) : (
                     <User className="w-4 h-4" />
                   )}
-                  <span>{report.is_anonymous ? 'Anonymous' : 'Identified'}</span>
+                  <span>{report.isAnonymous ? 'Anonymous' : 'Identified'}</span>
                 </div>
               </div>
 
@@ -143,18 +132,18 @@ const IncidentReportsList = () => {
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-1">
                     <Clock className="w-4 h-4" />
-                    <span>{formatDate(report.reported_at)}</span>
+                    <span>{formatDate(report.reportedAt)}</span>
                   </div>
                   
-                  {(report.location_lat && report.location_lng) && (
+                  {report.location && (
                     <div className="flex items-center space-x-1">
                       <MapPin className="w-4 h-4" />
                       <span>Location tagged</span>
                     </div>
                   )}
                   
-                  {report.location_description && (
-                    <span>{report.location_description}</span>
+                  {report.locationDescription && (
+                    <span>{report.locationDescription}</span>
                   )}
                 </div>
 
@@ -169,11 +158,11 @@ const IncidentReportsList = () => {
                 )}
               </div>
 
-              {report.media_files && report.media_files.length > 0 && (
+              {report.mediaFiles && report.mediaFiles.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-gray-100">
                   <div className="flex items-center space-x-2 text-sm text-gray-600">
                     <Eye className="w-4 h-4" />
-                    <span>{report.media_files.length} media file(s) attached</span>
+                    <span>{report.mediaFiles.length} media file(s) attached</span>
                   </div>
                 </div>
               )}

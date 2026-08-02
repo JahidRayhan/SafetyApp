@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { Clock, MapPin, Phone, FileText, AlertTriangle, Filter, Calendar } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { panelBase } from '@/shared/ui/styles';
 
 interface ActivityLog {
   id: string;
@@ -163,7 +164,7 @@ const ActivityHistory = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className={panelBase}>
         <div className="flex items-center space-x-3 mb-4">
           <Clock className="w-6 h-6 text-blue-600" />
           <h2 className="text-xl font-bold text-gray-900">Activity History</h2>
@@ -174,7 +175,7 @@ const ActivityHistory = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className={panelBase}>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Activity Type Filter */}
           <div>
@@ -230,7 +231,7 @@ const ActivityHistory = () => {
           filteredActivities.map((activity) => {
             const ActivityIcon = getActivityIcon(activity.type);
             return (
-              <div key={activity.id} className="bg-white rounded-xl shadow-lg p-6">
+              <div key={activity.id} className={panelBase}>
                 <div className="flex items-start space-x-4">
                   <div className="bg-blue-100 p-3 rounded-lg flex-shrink-0">
                     <ActivityIcon className="w-6 h-6 text-blue-600" />

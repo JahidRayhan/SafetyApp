@@ -4,6 +4,7 @@ import AudioRecorder from './AudioRecorder';
 import VideoRecorder from './VideoRecorder';
 import EvidenceUploader from './EvidenceUploader';
 import { Mic, Video, FileText, Upload } from 'lucide-react';
+import { panelBase, panelHeader, stackLoose } from '@/shared/ui/styles';
 
 interface RecordingPanelProps {
   incidentId?: string;
@@ -20,11 +21,11 @@ const RecordingPanel = ({ incidentId, onRecordingComplete }: RecordingPanelProps
   ];
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className={stackLoose}>
+      <div className={panelBase}>
         <div className="flex items-center space-x-3 mb-6">
           <FileText className="w-6 h-6 text-emergency-600" />
-          <h2 className="text-xl font-bold text-gray-900">Evidence Recording</h2>
+          <h2 className={panelHeader}>Evidence Recording</h2>
         </div>
 
         <div className="flex space-x-2 mb-6">

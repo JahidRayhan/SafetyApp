@@ -1,19 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { Play, Pause, RotateCcw, Clock, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-
-interface MeditationSession {
-  id: string;
-  title: string;
-  description: string;
-  duration_minutes: number;
-  audio_url: string | null;
-  category: string;
-  difficulty_level: string;
-  is_featured: boolean;
-}
+import { meditationService } from '@/features/support/services/meditationService';
+import type { MeditationSession } from '@/features/support/domain/types';
 
 const MeditationSessions = () => {
   const [sessions, setSessions] = useState<MeditationSession[]>([]);
@@ -31,7 +21,7 @@ const MeditationSessions = () => {
   }, []);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     
     if (isActive && timeRemaining && timeRemaining > 0) {
       interval = setInterval(() => {
@@ -59,14 +49,8 @@ const MeditationSessions = () => {
 
   const fetchSessions = async () => {
     try {
-      const { data, error } = await supabase
-        .from('meditation_sessions')
-        .select('*')
-        .order('is_featured', { ascending: false })
-        .order('duration_minutes');
-
-      if (error) throw error;
-      setSessions(data || []);
+      const data = await meditationService.listForUsers();
+      setSessions(data);
     } catch (error) {
       console.error('Error fetching sessions:', error);
       toast({

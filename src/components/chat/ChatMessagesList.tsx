@@ -9,6 +9,7 @@ interface ChatMessage {
   response: string | null;
   created_at: string;
   conversation_id: string;
+  isUser?: boolean;
 }
 
 interface ChatMessagesListProps {

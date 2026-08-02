@@ -2,10 +2,10 @@
 import React, { useState } from 'react';
 import { Settings as SettingsIcon, Shield, User, Bell, Mic, Save, Check } from 'lucide-react';
 import VoiceCommands from '@/components/VoiceCommands';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { profileService } from '@/features/profile/services/profileService';
 
 const Settings = () => {
   const [activeSection, setActiveSection] = useState('general');
@@ -27,8 +27,8 @@ const Settings = () => {
     locationHistory: true,
     anonymousReporting: false,
     dataSharing: false,
-    voiceMonitoring: profile?.voice_monitoring_enabled || false,
-    sosGesture: profile?.sos_gesture_enabled || true
+    voiceMonitoring: profile?.voiceMonitoringEnabled || false,
+    sosGesture: profile?.sosGestureEnabled || true
   });
 
   const updateSetting = async (key: string, value: boolean) => {
@@ -38,16 +38,14 @@ const Settings = () => {
     if (key === 'voiceMonitoring' || key === 'sosGesture') {
       setIsUpdating(true);
       try {
-        const updateData = key === 'voiceMonitoring' 
-          ? { voice_monitoring_enabled: value }
-          : { sos_gesture_enabled: value };
+        if (!user) throw new Error('Not authenticated');
+        await profileService.update(
+          user.id,
+          key === 'voiceMonitoring'
+            ? { voiceMonitoringEnabled: value }
+            : { sosGestureEnabled: value },
+        );
 
-        const { error } = await supabase
-          .from('profiles')
-          .update(updateData)
-          .eq('id', user?.id);
-
-        if (error) throw error;
 
         toast({
           title: "Settings Updated",

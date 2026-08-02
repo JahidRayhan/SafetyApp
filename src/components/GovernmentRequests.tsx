@@ -1,36 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { CheckCircle, XCircle, Clock, AlertCircle, MapPin, Database, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
-
-interface ZoneRequest {
-  id: string;
-  location: string;
-  reason: string;
-  zoneType: string;
-  urgency: string;
-  center_lat: string;
-  center_lng: string;
-  radius_meters: string;
-  requestedBy: string;
-  requestedAt: string;
-  status: string;
-}
-
-interface DataAccessRequest {
-  id: string;
-  title: string;
-  description: string;
-  urgency: string;
-  dataType: string;
-  timeframe: string;
-  requestedBy: string;
-  requestedAt: string;
-  status: string;
-}
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
+import { governmentRequestService } from '@/features/government/services/governmentRequestService';
+import type { ZoneRequest, DataAccessRequest } from '@/features/government/domain/types';
 
 const GovernmentRequests = () => {
   const [activeTab, setActiveTab] = useState<'zone-requests' | 'data-requests'>('zone-requests');
@@ -54,9 +29,9 @@ const GovernmentRequests = () => {
         reason: 'High incident reports in this area require immediate safe zone designation',
         zoneType: 'safe',
         urgency: 'high',
-        center_lat: '40.7128',
-        center_lng: '-74.0060',
-        radius_meters: '500',
+        centerLat: '40.7128',
+        centerLng: '-74.0060',
+        radiusMeters: '500',
         requestedBy: 'admin@safety.org',
         requestedAt: '2025-06-01T10:30:00Z',
         status: 'pending'
@@ -67,9 +42,9 @@ const GovernmentRequests = () => {
         reason: 'Recent safety concerns reported by multiple users',
         zoneType: 'unsafe',
         urgency: 'medium',
-        center_lat: '40.7589',
-        center_lng: '-73.9851',
-        radius_meters: '300',
+        centerLat: '40.7589',
+        centerLng: '-73.9851',
+        radiusMeters: '300',
         requestedBy: 'admin@safety.org',
         requestedAt: '2025-06-01T09:15:00Z',
         status: 'pending'
@@ -112,26 +87,25 @@ const GovernmentRequests = () => {
     try {
       if (action === 'approve') {
         // Create the safe zone
-        const { error } = await supabase
-          .from('safe_zones')
-          .insert({
+        await governmentRequestService.approveZoneRequest(
+          {
             name: request.location,
             description: request.reason,
-            center_lat: parseFloat(request.center_lat),
-            center_lng: parseFloat(request.center_lng),
-            radius_meters: parseInt(request.radius_meters),
-            zone_type: request.zoneType,
-            created_by: user?.id,
-            is_active: true
-          });
-
-        if (error) throw error;
+            centerLat: parseFloat(request.centerLat),
+            centerLng: parseFloat(request.centerLng),
+            radiusMeters: parseInt(request.radiusMeters),
+            zoneType: request.zoneType,
+            createdBy: (user?.id || '') as any,
+          },
+          request.status
+        );
 
         toast({
           title: "Zone Request Approved",
           description: `Safe zone "${request.location}" has been created and activated.`,
         });
       } else {
+        governmentRequestService.validateStatusTransition(request.status);
         toast({
           title: "Zone Request Rejected",
           description: `Request for "${request.location}" has been rejected.`,
@@ -285,11 +259,11 @@ const GovernmentRequests = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Coordinates</label>
-                    <p className="text-gray-900">{request.center_lat}, {request.center_lng}</p>
+                    <p className="text-gray-900">{request.centerLat}, {request.centerLng}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-700">Radius</label>
-                    <p className="text-gray-900">{request.radius_meters} meters</p>
+                    <p className="text-gray-900">{request.radiusMeters} meters</p>
                   </div>
                 </div>
 

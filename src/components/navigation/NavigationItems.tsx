@@ -22,9 +22,8 @@ export const getNavigationItems = (userRole: string) => {
     case 'admin':
       return [
         { id: 'home', label: 'Home', icon: Home },
-        { id: 'incident-report', label: 'Report', icon: FileText },
         { id: 'user-info', label: 'User Info', icon: UserCheck },
-        { id: 'admin-requests', label: 'Requests', icon: FileSearch }
+        { id: 'settings', label: 'Settings', icon: Shield }
       ];
     case 'govt_admin':
       return [

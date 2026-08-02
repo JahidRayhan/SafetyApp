@@ -1,45 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { FileSearch, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { useProfile } from '@/features/profile/hooks/useProfile';
 import { useActivityLogger } from '@/components/ActivityLog';
 import AdminApprovals from '@/components/AdminApprovals';
-
-interface AdminRequest {
-  id: string;
-  admin_id: string;
-  request_type: string;
-  title: string;
-  description: string;
-  status: string;
-  request_data: any;
-  created_at: string;
-  updated_at: string;
-  admin_profile?: {
-    full_name: string;
-  };
-}
-
-interface GovernmentRequest {
-  id: string;
-  government_admin_id: string;
-  request_type: string;
-  title: string;
-  description: string;
-  status: string;
-  request_data: any;
-  created_at: string;
-  target_user_id?: string;
-  target_user_profile?: {
-    full_name: string;
-  };
-}
+import { adminRequestService } from '@/features/admin/services/adminRequestService';
+import type { AdminRequestRecord } from '@/features/admin/domain/types';
+import type { GovernmentRequestRecord } from '@/features/admin/services/adminRequestService';
 
 const ReviewRequests = () => {
-  const [adminRequests, setAdminRequests] = useState<AdminRequest[]>([]);
-  const [governmentRequests, setGovernmentRequests] = useState<GovernmentRequest[]>([]);
+  const [adminRequests, setAdminRequests] = useState<AdminRequestRecord[]>([]);
+  const [governmentRequests, setGovernmentRequests] = useState<GovernmentRequestRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'admin_approvals' | 'admin_requests' | 'govt_requests'>('admin_approvals');
   const { toast } = useToast();
@@ -57,45 +29,13 @@ const ReviewRequests = () => {
     try {
       if (profile?.role === 'govt_admin') {
         // Government admins see admin requests
-        const { data: adminReqs, error: adminError } = await supabase
-          .from('admin_requests')
-          .select(`
-            *,
-            profiles!admin_id (
-              full_name
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (adminError) throw adminError;
-        
-        const formattedAdminReqs = adminReqs?.map(req => ({
-          ...req,
-          admin_profile: req.profiles as any
-        })) || [];
-
+        const formattedAdminReqs = await adminRequestService.listAdminRequests();
         setAdminRequests(formattedAdminReqs);
       }
 
       if (profile?.role === 'admin') {
         // Admins see government requests
-        const { data: govReqs, error: govError } = await supabase
-          .from('government_requests')
-          .select(`
-            *,
-            profiles!target_user_id (
-              full_name
-            )
-          `)
-          .order('created_at', { ascending: false });
-
-        if (govError) throw govError;
-        
-        const formattedGovReqs = govReqs?.map(req => ({
-          ...req,
-          target_user_profile: req.profiles as any
-        })) || [];
-
+        const formattedGovReqs = await adminRequestService.listGovernmentRequests();
         setGovernmentRequests(formattedGovReqs);
       }
 
@@ -113,17 +53,10 @@ const ReviewRequests = () => {
 
   const handleAdminRequestAction = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      const { error } = await supabase
-        .from('admin_requests')
-        .update({
-          status: action === 'approve' ? 'approved' : 'rejected',
-          reviewed_by: user?.id,
-          reviewed_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestId);
+      const request = adminRequests.find(r => r.id === requestId);
+      if (!request) return;
 
-      if (error) throw error;
+      await adminRequestService.reviewAdminRequest(requestId, action, user?.id || '', request.status);
 
       await logActivity('admin', `Admin request ${action}d`, { 
         request_id: requestId,
@@ -148,17 +81,10 @@ const ReviewRequests = () => {
 
   const handleGovernmentRequestAction = async (requestId: string, action: 'approve' | 'reject') => {
     try {
-      const { error } = await supabase
-        .from('government_requests')
-        .update({
-          status: action === 'approve' ? 'approved' : 'rejected',
-          handled_by: user?.id,
-          handled_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', requestId);
+      const request = governmentRequests.find(r => r.id === requestId);
+      if (!request) return;
 
-      if (error) throw error;
+      await adminRequestService.reviewGovernmentRequest(requestId, action, user?.id || '', request.status);
 
       await logActivity('admin', `Government request ${action}d`, { 
         request_id: requestId,
@@ -279,7 +205,7 @@ const ReviewRequests = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <span className="text-lg">{getRequestTypeIcon(request.request_type)}</span>
+                      <span className="text-lg">{getRequestTypeIcon(request.requestType)}</span>
                       <h3 className="font-semibold text-gray-900">{request.title}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
                         {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
@@ -289,21 +215,21 @@ const ReviewRequests = () => {
                     <p className="text-gray-600 mb-2">{request.description}</p>
                     
                     <div className="text-sm text-gray-500 space-y-1">
-                      <p>Requested by: {request.admin_profile?.full_name || 'Unknown Admin'}</p>
-                      <p>Date: {new Date(request.created_at).toLocaleDateString()}</p>
-                      <p>Type: {request.request_type.replace('_', ' ').toUpperCase()}</p>
+                      <p>Requested by: {request.adminProfile?.fullName || 'Unknown Admin'}</p>
+                      <p>Date: {new Date(request.createdAt).toLocaleDateString()}</p>
+                      <p>Type: {request.requestType.replace('_', ' ').toUpperCase()}</p>
                     </div>
 
-                    {request.request_data && (
+                    {request.requestData ? (
                       <details className="mt-3">
                         <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
                           View Request Details
                         </summary>
                         <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto">
-                          {JSON.stringify(request.request_data, null, 2)}
+                          {JSON.stringify(request.requestData, null, 2)}
                         </pre>
                       </details>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 
@@ -345,7 +271,7 @@ const ReviewRequests = () => {
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1">
                     <div className="flex items-center space-x-3 mb-2">
-                      <span className="text-lg">{getRequestTypeIcon(request.request_type)}</span>
+                      <span className="text-lg">{getRequestTypeIcon(request.requestType)}</span>
                       <h3 className="font-semibold text-gray-900">{request.title}</h3>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
                         {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
@@ -356,21 +282,21 @@ const ReviewRequests = () => {
                     
                     <div className="text-sm text-gray-500 space-y-1">
                       <p>Requested by: Government Administration</p>
-                      <p>Target User: {request.target_user_profile?.full_name || 'System Wide'}</p>
-                      <p>Date: {new Date(request.created_at).toLocaleDateString()}</p>
-                      <p>Type: {request.request_type.replace('_', ' ').toUpperCase()}</p>
+                      <p>Target User: {request.targetUserProfile?.fullName || 'System Wide'}</p>
+                      <p>Date: {new Date(request.createdAt).toLocaleDateString()}</p>
+                      <p>Type: {request.requestType.replace('_', ' ').toUpperCase()}</p>
                     </div>
 
-                    {request.request_data && (
+                    {request.requestData ? (
                       <details className="mt-3">
                         <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800">
                           View Request Details
                         </summary>
                         <pre className="mt-2 p-3 bg-gray-50 rounded text-xs overflow-x-auto">
-                          {JSON.stringify(request.request_data, null, 2)}
+                          {JSON.stringify(request.requestData, null, 2)}
                         </pre>
                       </details>
-                    )}
+                    ) : null}
                   </div>
                 </div>
 

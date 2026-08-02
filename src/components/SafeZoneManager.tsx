@@ -2,19 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { MapPin, Plus, Shield, AlertTriangle, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import SafeZoneMapPicker from './SafeZoneMapPicker';
+import { safeZoneService } from '@/features/geofencing/services/safeZoneService';
+import { useGeofencingStore } from '@/stores';
+import type { SafeZone as DomainSafeZone, SafeZoneType } from '@/features/geofencing/domain/types';
+import { panelBase, panelHeader, rowBetween, stackLoose } from '@/shared/ui/styles';
+import { mergeClasses } from '@/shared/lib/styles';
 
-interface SafeZone {
-  id: string;
-  name: string;
-  description: string | null;
-  center_lat: number;
-  center_lng: number;
-  radius_meters: number;
-  zone_type: string;
-  is_active: boolean;
-  created_at: string;
-}
+type SafeZone = DomainSafeZone;
 
 const SafeZoneManager = () => {
   const [safeZones, setSafeZones] = useState<SafeZone[]>([]);
@@ -32,18 +27,16 @@ const SafeZoneManager = () => {
 
   useEffect(() => {
     fetchSafeZones();
+    return safeZoneService.subscribe('safe_zones-manager', () => {
+      void fetchSafeZones();
+    });
   }, []);
 
   const fetchSafeZones = async () => {
     try {
-      const { data, error } = await supabase
-        .from('safe_zones')
-        .select('*')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setSafeZones(data || []);
+      const zones = await safeZoneService.listActive();
+      setSafeZones(zones);
+      useGeofencingStore.getState().setZones(zones);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -83,17 +76,13 @@ const SafeZoneManager = () => {
   const addSafeZone = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('safe_zones')
-        .insert({
-          ...newZone,
-          created_by: user.user.id
-        });
-
-      if (error) throw error;
+      await safeZoneService.create({
+        name: newZone.name,
+        description: newZone.description || null,
+        zoneType: newZone.zone_type as SafeZoneType,
+        center: { lat: newZone.center_lat, lng: newZone.center_lng } as DomainSafeZone['center'],
+        radius: newZone.radius_meters as DomainSafeZone['radius'],
+      });
 
       toast({
         title: "Safe zone added!",
@@ -160,12 +149,12 @@ const SafeZoneManager = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
+    <div className={stackLoose}>
+      <div className={panelBase}>
+        <div className={mergeClasses(rowBetween, "mb-6")}>
           <div className="flex items-center space-x-3">
             <MapPin className="w-6 h-6 text-safe-600" />
-            <h2 className="text-xl font-bold text-gray-900">Safe Zones</h2>
+            <h2 className={panelHeader}>Safe Zones</h2>
           </div>
           <button
             onClick={() => setShowAddForm(!showAddForm)}
@@ -222,47 +211,56 @@ const SafeZoneManager = () => {
               />
             </div>
 
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Pick center on map (click or drag the marker)
+              </label>
+              <SafeZoneMapPicker
+                center={{ lat: newZone.center_lat, lng: newZone.center_lng }}
+                radius={newZone.radius_meters}
+                onChange={({ lat, lng }) =>
+                  setNewZone((prev) => ({ ...prev, center_lat: lat, center_lng: lng }))
+                }
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Latitude
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Latitude</label>
                 <input
                   type="number"
                   step="any"
                   value={newZone.center_lat}
-                  onChange={(e) => setNewZone(prev => ({ ...prev, center_lat: parseFloat(e.target.value) }))}
+                  onChange={(e) => setNewZone(prev => ({ ...prev, center_lat: parseFloat(e.target.value) || 0 }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-safe-500 focus:border-safe-500"
                   required
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Longitude
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Longitude</label>
                 <input
                   type="number"
                   step="any"
                   value={newZone.center_lng}
-                  onChange={(e) => setNewZone(prev => ({ ...prev, center_lng: parseFloat(e.target.value) }))}
+                  onChange={(e) => setNewZone(prev => ({ ...prev, center_lng: parseFloat(e.target.value) || 0 }))}
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-safe-500 focus:border-safe-500"
                   required
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Radius (meters)
+                  Radius: {newZone.radius_meters} m
                 </label>
                 <input
-                  type="number"
+                  type="range"
+                  min={50}
+                  max={5000}
+                  step={10}
                   value={newZone.radius_meters}
                   onChange={(e) => setNewZone(prev => ({ ...prev, radius_meters: parseInt(e.target.value) }))}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-safe-500 focus:border-safe-500"
-                  min="50"
-                  max="5000"
-                  required
+                  className="w-full accent-safe-600"
                 />
               </div>
             </div>
@@ -303,27 +301,27 @@ const SafeZoneManager = () => {
             safeZones.map((zone) => (
               <div
                 key={zone.id}
-                className={`border-2 rounded-lg p-4 ${getZoneColor(zone.zone_type)}`}
+                className={`border-2 rounded-lg p-4 ${getZoneColor(zone.zoneType)}`}
               >
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-3">
-                    {getZoneIcon(zone.zone_type)}
+                    {getZoneIcon(zone.zoneType)}
                     <div>
                       <h3 className="font-semibold text-gray-900">{zone.name}</h3>
                       {zone.description && (
                         <p className="text-sm text-gray-600 mt-1">{zone.description}</p>
                       )}
                       <div className="text-xs text-gray-500 mt-2">
-                        <span>Radius: {zone.radius_meters}m</span> • 
+                        <span>Radius: {zone.radius}m</span> • 
                         <span className="ml-1">
-                          {zone.center_lat.toFixed(4)}, {zone.center_lng.toFixed(4)}
+                          {zone.center.lat.toFixed(4)}, {zone.center.lng.toFixed(4)}
                         </span>
                       </div>
                     </div>
                   </div>
                   <button
                     onClick={() => {
-                      const url = `https://maps.google.com/?q=${zone.center_lat},${zone.center_lng}`;
+                      const url = `https://maps.google.com/?q=${zone.center.lat},${zone.center.lng}`;
                       window.open(url, '_blank');
                     }}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium"

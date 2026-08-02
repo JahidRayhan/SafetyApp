@@ -1,8 +1,7 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { assistantService } from '@/features/support/services/assistantService';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
 
 interface ChatMessage {
   id: string;
@@ -10,127 +9,79 @@ interface ChatMessage {
   response: string | null;
   created_at: string;
   conversation_id: string;
+  isUser?: boolean;
 }
 
 export const useChatbot = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    {
+      id: '1',
+      message: 'Hello! I\'m your SafeGuard AI assistant. I can help you with safety tips, emergency procedures, and answer questions about the app.',
+      response: '',
+      created_at: new Date().toISOString(),
+      conversation_id: 'initial',
+      isUser: false
+    }
+  ]);
   const [isLoading, setIsLoading] = useState(false);
-  const [conversationId, setConversationId] = useState<string>('');
   const { toast } = useToast();
-  const { user } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      loadChatHistory();
-    }
-  }, [user]);
-
-  const loadChatHistory = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('user_id', user?.id)
-        .order('created_at', { ascending: true })
-        .limit(50);
-
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setMessages(data);
-        setConversationId(data[0].conversation_id || generateConversationId());
-      } else {
-        setConversationId(generateConversationId());
-      }
-    } catch (error: any) {
-      console.error('Error loading chat history:', error);
-    }
-  };
-
-  const generateConversationId = () => {
-    return `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  };
-
-  const sendMessage = async (userMessage: string) => {
-    if (!userMessage.trim() || !user) return;
+  const sendMessage = useCallback(async (message: string) => {
+    if (!message.trim()) return;
 
     setIsLoading(true);
-
-    // Add user message to local state immediately
-    const newTempMessage: ChatMessage = {
-      id: `temp_${Date.now()}`,
-      message: userMessage,
-      response: null,
+    
+    // Add user message immediately
+    const userMessage: ChatMessage = {
+      id: Date.now().toString(),
+      message,
+      response: '',
       created_at: new Date().toISOString(),
-      conversation_id: conversationId
+      conversation_id: 'user-conv',
+      isUser: true
     };
     
-    setMessages(prev => [...prev, newTempMessage]);
+    setMessages(prev => [...prev, userMessage]);
 
     try {
-      // Save message to database
-      const { data: savedMessage, error: saveError } = await supabase
-        .from('chat_messages')
-        .insert({
-          user_id: user.id,
-          message: userMessage,
-          conversation_id: conversationId
-        })
-        .select()
-        .single();
+      const reply = await assistantService.ask(message);
 
-      if (saveError) throw saveError;
+      // Add bot response
+      const botMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        message: reply.text || 'I apologize, but I encountered an issue processing your message. Please try again.',
+        response: reply.text,
+        created_at: new Date().toISOString(),
+        conversation_id: 'bot-conv',
+        isUser: false
+      };
 
-      // Call the chatbot function
-      const { data: functionData, error: functionError } = await supabase.functions
-        .invoke('chatbot-support', {
-          body: { 
-            message: userMessage,
-            conversation_id: conversationId,
-            user_id: user.id
-          }
-        });
-
-      if (functionError) {
-        throw new Error('Chatbot service temporarily unavailable. Please try again in a moment.');
-      }
-
-      const botResponse = functionData?.response || 'I apologize, but I encountered an issue processing your request. Please try rephrasing your question.';
-
-      // Update the message with the response
-      const { error: updateError } = await supabase
-        .from('chat_messages')
-        .update({ response: botResponse })
-        .eq('id', savedMessage.id);
-
-      if (updateError) throw updateError;
-
-      // Update local state
-      setMessages(prev => prev.map(msg => 
-        msg.id === newTempMessage.id 
-          ? { ...savedMessage, response: botResponse }
-          : msg
-      ));
+      setMessages(prev => [...prev, botMessage]);
 
     } catch (error: any) {
       console.error('Error sending message:', error);
       
-      // Update the temporary message with an error response
-      setMessages(prev => prev.map(msg => 
-        msg.id === newTempMessage.id 
-          ? { ...msg, response: 'I apologize, but I\'m experiencing technical difficulties. Please try again in a moment or contact support for assistance.' }
-          : msg
-      ));
+      // Add error response
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        message: 'I\'m having trouble connecting right now. As a SafeGuard assistant, I can help with:\n\n• Emergency procedures and safety tips\n• How to use app features like SOS alerts\n• Setting up emergency contacts\n• Location sharing guidance\n• General safety advice\n\nPlease try your question again, or contact support if the issue persists.',
+        response: '',
+        created_at: new Date().toISOString(),
+        conversation_id: 'error-conv',
+        isUser: false
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
 
       toast({
         title: "Connection Issue",
-        description: "There was a problem connecting to the chatbot. Your message has been saved and we'll respond as soon as possible.",
+        description: "Having trouble connecting to the assistant. Please try again.",
         variant: "destructive",
       });
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
 
   return {
     messages,

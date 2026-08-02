@@ -93,7 +93,23 @@ export default {
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
-				sm: 'calc(var(--radius) - 4px)'
+				sm: 'calc(var(--radius) - 4px)',
+				panel: '0.875rem',
+				control: '0.5rem',
+				pill: '9999px',
+			},
+			spacing: {
+				'panel-sm': '1rem',
+				panel: '1.5rem',
+				'panel-lg': '2rem',
+				inline: '0.5rem',
+				stack: '1rem',
+			},
+			boxShadow: {
+				panel: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 4px 12px -2px rgb(15 23 42 / 0.06)',
+				'panel-hover': '0 2px 4px 0 rgb(15 23 42 / 0.06), 0 12px 24px -4px rgb(15 23 42 / 0.10)',
+				alert: '0 4px 14px -2px rgb(220 38 38 / 0.25)',
+				floating: '0 12px 32px -8px rgb(15 23 42 / 0.18)',
 			},
 			keyframes: {
 				'accordion-down': {

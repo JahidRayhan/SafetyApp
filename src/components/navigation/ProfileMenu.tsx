@@ -1,26 +1,31 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { LogOut, User, Settings, Activity } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { authService } from '@/features/auth/services/authService';
 
 interface ProfileMenuProps {
-  profile: any;
+  profile: { fullName: string | null } | null;
   userRole: string;
   showProfileMenu: boolean;
   setShowProfileMenu: (show: boolean) => void;
   onTabChange: (tab: string) => void;
 }
 
-const ProfileMenu = ({ 
-  profile, 
-  userRole, 
-  showProfileMenu, 
-  setShowProfileMenu, 
-  onTabChange 
+const ProfileMenu = ({
+  profile,
+  userRole,
+  showProfileMenu,
+  setShowProfileMenu,
+  onTabChange
 }: ProfileMenuProps) => {
+  const [signingOut, setSigningOut] = useState(false);
+
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
+    setSigningOut(true);
+    try {
+      await authService.signOut();
+    } finally {
+      window.location.reload();
+    }
   };
 
   return (
@@ -33,7 +38,7 @@ const ProfileMenu = ({
           <User className="w-4 h-4 text-white" />
         </div>
         <span className="hidden md:block text-sm font-medium">
-          {profile?.full_name || 'User'}
+          {profile?.fullName || 'User'}
         </span>
       </button>
 
@@ -41,7 +46,7 @@ const ProfileMenu = ({
         <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border z-50">
           <div className="p-3 border-b">
             <p className="text-sm font-medium text-gray-900">
-              {profile?.full_name || 'User'}
+              {profile?.fullName || 'User'}
             </p>
             <p className="text-xs text-gray-500 capitalize">
               {userRole.replace('_', ' ')}
@@ -70,10 +75,11 @@ const ProfileMenu = ({
             </button>
             <button
               onClick={handleSignOut}
-              className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg"
+              disabled={signingOut}
+              className="flex items-center space-x-2 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-60"
             >
               <LogOut className="w-4 h-4" />
-              <span>Sign Out</span>
+              <span>{signingOut ? 'Signing out…' : 'Sign Out'}</span>
             </button>
           </div>
         </div>

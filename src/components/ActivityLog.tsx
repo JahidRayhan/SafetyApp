@@ -1,104 +1,63 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Activity, Calendar, Filter, Search } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
-import { useProfile } from '@/hooks/useProfile';
-import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/features/auth/hooks/useAuth';
+import { activityService } from '@/features/activity/services/activityService';
+import type { ActivityEvent, ActivityKind } from '@/features/activity/domain/types';
+import { panelBase, panelHeader, rowStart } from '@/shared/ui/styles';
+import { alertCardInfo } from '@/shared/ui/styles';
 
-interface ActivityEntry {
-  id: string;
-  action_type: string;
-  description: string;
-  created_at: string;
-  metadata?: any;
-  user_id: string;
-}
+const KIND_STYLES: Record<string, string> = {
+  emergency: 'bg-emergency-100 text-emergency-800',
+  safety: 'bg-safe-100 text-safe-800',
+  location_sharing: 'bg-blue-100 text-blue-800',
+  chat: 'bg-purple-100 text-purple-800',
+  evidence_upload: 'bg-orange-100 text-orange-800',
+  recording: 'bg-orange-100 text-orange-800',
+  system: 'bg-gray-100 text-gray-800',
+};
 
 const ActivityLog = () => {
-  const [activities, setActivities] = useState<ActivityEntry[]>([]);
+  const [activities, setActivities] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<ActivityKind | 'all'>('all');
   const [searchTerm, setSearchTerm] = useState('');
   const { user } = useAuth();
-  const { profile } = useProfile(user);
 
   useEffect(() => {
-    if (user) {
-      fetchActivities();
-    }
+    if (!user) return;
+    let cancelled = false;
+
+    activityService
+      .list({ userId: user.id, kind: filter })
+      .then((events) => {
+        if (!cancelled) setActivities(events);
+      })
+      .catch((error) => console.error('Failed to load activity:', error))
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [user, filter]);
 
-  const fetchActivities = async () => {
-    try {
-      let query = supabase
-        .from('activity_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      // If user is not admin/govt_admin, only show their own activities
-      if (profile?.role === 'user') {
-        query = query.eq('user_id', user?.id);
-      }
-
-      if (filter !== 'all') {
-        query = query.eq('action_type', filter);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-      setActivities(data || []);
-    } catch (error: any) {
-      console.error('Error fetching activities:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const logActivity = async (actionType: string, description: string, metadata?: any) => {
-    if (!user) return;
-
-    try {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action_type: actionType,
-        description: description,
-        metadata: metadata
-      });
-    } catch (error: any) {
-      console.error('Error logging activity:', error);
-    }
-  };
-
-  const filteredActivities = activities.filter(activity =>
-    activity.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    activity.action_type.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredActivities = activities.filter(
+    (activity) =>
+      activity.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      activity.kind.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
-  const getActionTypeColor = (actionType: string) => {
-    switch (actionType) {
-      case 'emergency':
-        return 'bg-emergency-100 text-emergency-800';
-      case 'safety':
-        return 'bg-safe-100 text-safe-800';
-      case 'admin':
-        return 'bg-blue-100 text-blue-800';
-      case 'system':
-        return 'bg-gray-100 text-gray-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
+  const kindStyle = (kind: string) => KIND_STYLES[kind] ?? 'bg-gray-100 text-gray-800';
 
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-lg p-6">
+      <div className={panelBase}>
         <div className="animate-pulse space-y-4">
-          <div className="h-6 bg-gray-200 rounded w-1/3"></div>
+          <div className="h-6 bg-muted rounded w-1/3" />
           <div className="space-y-3">
-            <div className="h-16 bg-gray-200 rounded"></div>
-            <div className="h-16 bg-gray-200 rounded"></div>
+            <div className="h-16 bg-muted rounded" />
+            <div className="h-16 bg-muted rounded" />
           </div>
         </div>
       </div>
@@ -106,25 +65,34 @@ const ActivityLog = () => {
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="flex items-center space-x-3 mb-6">
+    <div className={panelBase}>
+      <div className={`${rowStart} mb-6`}>
         <Activity className="w-6 h-6 text-safe-600" />
-        <h2 className="text-xl font-bold text-gray-900">Activity Log</h2>
+        <h2 className={panelHeader}>My Activity History</h2>
       </div>
 
-      {/* Filters and Search */}
+      <div className={`${alertCardInfo} mb-4`}>
+        <p className="text-sm">
+          This shows your personal activity history with SafeGuard. Track your safety activities,
+          emergency alerts, location sharing, and app usage.
+        </p>
+      </div>
+
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         <div className="flex items-center space-x-2">
           <Filter className="w-4 h-4 text-gray-500" />
           <select
+            aria-label="Filter activities by type"
             value={filter}
-            onChange={(e) => setFilter(e.target.value)}
+            onChange={(e) => setFilter(e.target.value as ActivityKind | 'all')}
             className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-safe-500 focus:border-safe-500"
           >
             <option value="all">All Activities</option>
             <option value="emergency">Emergency</option>
+            <option value="location_sharing">Location Sharing</option>
+            <option value="recording">Recording</option>
+            <option value="chat">AI Assistant</option>
             <option value="safety">Safety</option>
-            <option value="admin">Admin</option>
             <option value="system">System</option>
           </select>
         </div>
@@ -133,7 +101,7 @@ const ActivityLog = () => {
           <Search className="w-4 h-4 text-gray-500" />
           <input
             type="text"
-            placeholder="Search activities..."
+            placeholder="Search your activities..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-safe-500 focus:border-safe-500"
@@ -141,19 +109,21 @@ const ActivityLog = () => {
         </div>
       </div>
 
-      {/* Activity List */}
       <div className="space-y-3">
         {filteredActivities.map((activity) => (
-          <div key={activity.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+          <div
+            key={activity.id}
+            className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow"
+          >
             <div className="flex items-start justify-between">
               <div className="flex-1">
                 <div className="flex items-center space-x-3 mb-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getActionTypeColor(activity.action_type)}`}>
-                    {activity.action_type.charAt(0).toUpperCase() + activity.action_type.slice(1)}
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${kindStyle(activity.kind)}`}>
+                    {activity.kind.charAt(0).toUpperCase() + activity.kind.slice(1).replace('_', ' ')}
                   </span>
                   <div className="flex items-center space-x-1 text-sm text-gray-500">
                     <Calendar className="w-4 h-4" />
-                    <span>{new Date(activity.created_at).toLocaleString()}</span>
+                    <span>{new Date(activity.occurredAt).toLocaleString()}</span>
                   </div>
                 </div>
                 <p className="text-gray-900 font-medium">{activity.description}</p>
@@ -178,6 +148,10 @@ const ActivityLog = () => {
             <p className="text-gray-600">
               {searchTerm ? 'No activities found matching your search.' : 'No activity logged yet.'}
             </p>
+            <p className="text-sm text-gray-500 mt-2">
+              Your activities will appear here as you use SafeGuard features like SOS alerts,
+              location sharing, and emergency recording.
+            </p>
           </div>
         )}
       </div>
@@ -185,24 +159,20 @@ const ActivityLog = () => {
   );
 };
 
-// Export the logActivity function for use in other components
+/**
+ * Thin adapter so any feature can append to the audit trail without
+ * knowing about persistence.
+ */
 export const useActivityLogger = () => {
   const { user } = useAuth();
 
-  const logActivity = async (actionType: string, description: string, metadata?: any) => {
-    if (!user) return;
-
-    try {
-      await supabase.from('activity_logs').insert({
-        user_id: user.id,
-        action_type: actionType,
-        description: description,
-        metadata: metadata
-      });
-    } catch (error: any) {
-      console.error('Error logging activity:', error);
-    }
-  };
+  const logActivity = useCallback(
+    async (kind: ActivityKind, description: string, metadata?: Record<string, unknown>) => {
+      if (!user) return;
+      await activityService.record(user.id, { kind, description, metadata });
+    },
+    [user],
+  );
 
   return { logActivity };
 };

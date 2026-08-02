@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Phone, Calendar, Clock, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { fakeCallService } from '@/features/fake-call/services/fakeCallService';
 
 const FakeCallScheduler = () => {
   const [contactName, setContactName] = useState('');
@@ -35,21 +35,44 @@ const FakeCallScheduler = () => {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
     
-    overlay.innerHTML = `
-      <div style="text-align: center; animation: fadeIn 0.3s ease-in;">
-        <div style="width: 120px; height: 120px; border-radius: 50%; background: #4CAF50; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;">
-          <svg width="60" height="60" fill="white" viewBox="0 0 24 24">
-            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
-          </svg>
-        </div>
-        <h2 style="font-size: 24px; margin: 0 0 8px 0;">${contactName || 'Emergency Contact'}</h2>
-        <p style="font-size: 18px; margin: 0 0 40px 0; opacity: 0.8;">${contactNumber || '+1 (555) 123-4567'}</p>
-        <div style="display: flex; gap: 20px;">
-          <button id="decline-call" style="width: 70px; height: 70px; border-radius: 50%; background: #f44336; border: none; color: white; font-size: 24px; cursor: pointer;">✕</button>
-          <button id="accept-call" style="width: 70px; height: 70px; border-radius: 50%; background: #4CAF50; border: none; color: white; font-size: 24px; cursor: pointer;">✓</button>
-        </div>
-      </div>
-    `;
+    // SECURITY: Build DOM with safe APIs (textContent) instead of innerHTML
+    // to prevent XSS via user-controlled contactName / contactNumber.
+    const container = document.createElement('div');
+    container.style.cssText = 'text-align: center; animation: fadeIn 0.3s ease-in;';
+
+    const avatar = document.createElement('div');
+    avatar.style.cssText = 'width: 120px; height: 120px; border-radius: 50%; background: #4CAF50; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center;';
+    // SVG is static markup with no user input, safe to use innerHTML here
+    avatar.innerHTML = `<svg width="60" height="60" fill="white" viewBox="0 0 24 24"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>`;
+    container.appendChild(avatar);
+
+    const nameEl = document.createElement('h2');
+    nameEl.style.cssText = 'font-size: 24px; margin: 0 0 8px 0;';
+    nameEl.textContent = contactName || 'Emergency Contact';
+    container.appendChild(nameEl);
+
+    const numberEl = document.createElement('p');
+    numberEl.style.cssText = 'font-size: 18px; margin: 0 0 40px 0; opacity: 0.8;';
+    numberEl.textContent = contactNumber || '+1 (555) 123-4567';
+    container.appendChild(numberEl);
+
+    const buttonRow = document.createElement('div');
+    buttonRow.style.cssText = 'display: flex; gap: 20px;';
+
+    const declineBtn = document.createElement('button');
+    declineBtn.id = 'decline-call';
+    declineBtn.style.cssText = 'width: 70px; height: 70px; border-radius: 50%; background: #f44336; border: none; color: white; font-size: 24px; cursor: pointer;';
+    declineBtn.textContent = '✕';
+    buttonRow.appendChild(declineBtn);
+
+    const acceptBtn = document.createElement('button');
+    acceptBtn.id = 'accept-call';
+    acceptBtn.style.cssText = 'width: 70px; height: 70px; border-radius: 50%; background: #4CAF50; border: none; color: white; font-size: 24px; cursor: pointer;';
+    acceptBtn.textContent = '✓';
+    buttonRow.appendChild(acceptBtn);
+
+    container.appendChild(buttonRow);
+    overlay.appendChild(container);
 
     document.body.appendChild(overlay);
 
@@ -75,9 +98,6 @@ const FakeCallScheduler = () => {
     setLoading(true);
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
-
       if (isInstant) {
         triggerFakeCall();
         toast({
@@ -85,17 +105,12 @@ const FakeCallScheduler = () => {
           description: "Your fake call is now active.",
         });
       } else {
-        const { error } = await supabase
-          .from('fake_call_schedules')
-          .insert({
-            user_id: user.user.id,
-            contact_name: contactName,
-            contact_number: contactNumber,
-            scheduled_time: scheduledTime ? new Date(scheduledTime).toISOString() : null,
-            is_instant: false,
-          });
-
-        if (error) throw error;
+        await fakeCallService.schedule({
+          contactName,
+          contactNumber,
+          scheduledTime: scheduledTime ? new Date(scheduledTime).toISOString() : null,
+          isInstant: false,
+        });
 
         toast({
           title: "Fake call scheduled!",

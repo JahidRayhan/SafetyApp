@@ -2,29 +2,33 @@
 import React, { useState, useEffect } from 'react';
 import { Phone, Mail, Plus, Trash2, Edit3, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { panelBase, panelHeader, rowBetween, stackLoose } from '@/shared/ui/styles';
+import { mergeClasses } from '@/shared/lib/styles';
+import { contactService } from '@/features/emergency-contacts/services/contactService';
+import { sosService } from '@/features/sos/services/sosService';
+import type {
+  ContactDirectoryEntry,
+  ContactDirectoryDraft,
+  ContactPriority,
+  ContactRelationship,
+} from '@/features/emergency-contacts/domain/types';
 
-interface Contact {
-  id: string;
-  name: string;
-  phone: string;
-  email: string;
-  relationship: string;
-  priority: number;
-}
+type Contact = ContactDirectoryEntry;
+
+const EMPTY_DRAFT: ContactDirectoryDraft = {
+  name: '',
+  phone: '',
+  email: '',
+  relationship: null,
+  priority: 1,
+};
 
 const EmergencyContacts = () => {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddingContact, setIsAddingContact] = useState(false);
-  const [newContact, setNewContact] = useState({
-    name: '',
-    phone: '',
-    email: '',
-    relationship: '',
-    priority: 1
-  });
-  
+  const [newContact, setNewContact] = useState<ContactDirectoryDraft>(EMPTY_DRAFT);
+
   const { toast } = useToast();
 
   useEffect(() => {
@@ -33,13 +37,8 @@ const EmergencyContacts = () => {
 
   const fetchContacts = async () => {
     try {
-      const { data, error } = await supabase
-        .from('emergency_contacts')
-        .select('*')
-        .order('priority', { ascending: true });
-
-      if (error) throw error;
-      setContacts(data || []);
+      const list = await contactService.list();
+      setContacts(list);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -62,25 +61,14 @@ const EmergencyContacts = () => {
     }
 
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
-
-      const { error } = await supabase
-        .from('emergency_contacts')
-        .insert({
-          user_id: user.user.id,
-          ...newContact
-        });
-
-      if (error) throw error;
-
-      setNewContact({ name: '', phone: '', email: '', relationship: '', priority: 1 });
+      await contactService.create(newContact);
+      const addedName = newContact.name;
+      setNewContact(EMPTY_DRAFT);
       setIsAddingContact(false);
       fetchContacts();
-      
       toast({
         title: "Contact Added",
-        description: `${newContact.name} has been added to your emergency contacts.`,
+        description: `${addedName} has been added to your emergency contacts.`,
       });
     } catch (error: any) {
       toast({
@@ -93,20 +81,12 @@ const EmergencyContacts = () => {
 
   const removeContact = async (id: string) => {
     try {
-      const contact = contacts.find(c => c.id === id);
-      
-      const { error } = await supabase
-        .from('emergency_contacts')
-        .delete()
-        .eq('id', id);
-
-      if (error) throw error;
-
+      const contact = contacts.find((c) => c.id === id);
+      await contactService.remove(id);
       fetchContacts();
-      
       toast({
-        title: "Contact Removed", 
-        description: `${contact?.name} has been removed from your emergency contacts.`,
+        title: "Contact Removed",
+        description: `${contact?.name ?? 'Contact'} has been removed from your emergency contacts.`,
       });
     } catch (error: any) {
       toast({
@@ -127,35 +107,16 @@ const EmergencyContacts = () => {
 
   const sendEmergencyAlert = async () => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) throw new Error('Not authenticated');
-
-      // Create emergency incident
-      const { data: incident, error: incidentError } = await supabase
-        .from('emergency_incidents')
-        .insert({
-          user_id: user.user.id,
-          status: 'active'
-        })
-        .select()
-        .single();
-
-      if (incidentError) throw incidentError;
-
-      // Get current location if available
+      const incident = await sosService.createIncident();
       if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async (position) => {
-          await supabase
-            .from('emergency_incidents')
-            .update({
-              location_lat: position.coords.latitude,
-              location_lng: position.coords.longitude,
-              location_accuracy: position.coords.accuracy
-            })
-            .eq('id', incident.id);
+        navigator.geolocation.getCurrentPosition((position) => {
+          void sosService.updateIncidentLocation(incident.id, {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy,
+          });
         });
       }
-
       toast({
         title: "Emergency Alert Sent!",
         description: "All emergency contacts have been notified.",
@@ -187,10 +148,10 @@ const EmergencyContacts = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-lg p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Emergency Contacts</h2>
+    <div className={stackLoose}>
+      <div className={panelBase}>
+        <div className={mergeClasses(rowBetween, "mb-6")}>
+          <h2 className={panelHeader}>Emergency Contacts</h2>
           <button
             onClick={() => setIsAddingContact(!isAddingContact)}
             className="bg-emergency-600 hover:bg-emergency-700 text-white p-2 rounded-lg transition-all duration-200"
@@ -225,8 +186,8 @@ const EmergencyContacts = () => {
                 className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emergency-500 focus:border-emergency-500"
               />
               <select
-                value={newContact.relationship}
-                onChange={(e) => setNewContact({...newContact, relationship: e.target.value})}
+                value={newContact.relationship ?? ''}
+                onChange={(e) => setNewContact({...newContact, relationship: (e.target.value || null) as ContactRelationship | null})}
                 className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-emergency-500 focus:border-emergency-500"
               >
                 <option value="">Select Relationship</option>
