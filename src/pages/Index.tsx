@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useProfile } from '@/features/profile/hooks/useProfile';
-import { useIOSFeatures } from '@/hooks/useIOSFeatures';
 import AuthForm from '@/components/AuthForm';
 import TopNavigation from '@/components/TopNavigation';
 import LandingPage from '@/components/LandingPage';
@@ -20,7 +19,6 @@ import AccountSettings from '@/components/settings/AccountSettings';
 const Index = () => {
   const { user, loading } = useAuth();
   const { profile } = useProfile(user);
-  const { isIOS } = useIOSFeatures();
   const [activeTab, setActiveTab] = useState('home');
   const [showAuth, setShowAuth] = useState(false);
   const [isSOSActive, setIsSOSActive] = useState(false);
@@ -39,7 +37,7 @@ const Index = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emergency-50 to-emergency-100 flex items-center justify-center">
         <div className="animate-pulse text-emergency-600 text-lg">
-          Loading SafeGuard{isIOS() ? ' for iOS' : ''}...
+          Loading SafeGuard...
         </div>
       </div>
     );
@@ -73,7 +71,7 @@ const Index = () => {
             ) : (
               <>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  Welcome to SafeGuard{isIOS() ? ' for iOS' : ''}
+                  Welcome to SafeGuard
                 </h1>
                 <p className="text-gray-600 mb-8">Your personal safety dashboard</p>
                 <CoreFeatures onFeatureSelect={setActiveTab} />

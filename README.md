@@ -1,234 +1,179 @@
-# SafetyApp
-# Welcome to our project
+# SafeGuard — Safety Protect & Alert System
 
-## Project info
+**Live web app:** https://safetyprotection.netlify.app/
 
-**URL**: https://safetyprotection.netlify.app/
+A cross-platform personal safety and emergency response application providing real-time protection, monitoring, and rapid alert mechanisms during emergencies. The platform combines live location tracking, SOS alerting, emergency contact notification, geofencing, activity logging, and native mobile integration into a unified safety ecosystem.
 
-# Safety Protect & Alert System
-
-A cross-platform personal safety and emergency response application designed to provide real-time protection, monitoring, and rapid alert mechanisms during emergencies.
-
-The platform combines live location tracking, SOS alerting, emergency contact communication, route monitoring, activity logging, and mobile device integration into a unified safety ecosystem.
+The project ships as **two separate apps sharing one Supabase backend**:
+- **Web app** (`src/`) — React + TypeScript + Vite, deployed to Netlify
+- **Mobile app** (`mobile/`) — Flutter, built natively for Android and iOS
 
 ---
 
-# Overview
-
-The Safety Protect & Alert System is designed to improve user safety through proactive monitoring and rapid emergency response workflows.
+## Overview
 
 The system supports:
 
-* Emergency SOS triggering
-* Real-time geolocation tracking
-* Emergency contact notification
-* Background location monitoring
-* Activity and incident logging
-* Mobile-first deployment using Capacitor
-* Interactive map visualization
-* Secure cloud backend integration
-
-The project is built using a modern TypeScript-based architecture with a focus on scalability, modularity, and mobile compatibility.
+- Emergency SOS triggering (button tap, volume-button triple-press on Android, shake gesture on iOS)
+- Real-time geolocation tracking and live location sharing
+- Emergency contact notification via email (Brevo)
+- Geofencing / safe-zone entry alerts
+- Activity and incident logging
+- Interactive map visualization
+- Evidence recording (audio/video) and device file upload
+- Secure Supabase backend: Postgres, Auth, Storage, Realtime, and Edge Functions
 
 ---
 
-# Core Features
+## Core Features
 
-## Emergency SOS System
+### Emergency SOS System
+Triggering SOS:
+- Notifies emergency contacts by email with the user's location
+- Creates an emergency incident record
+- Auto-starts audio evidence recording
+- Generates an activity log entry
 
-Users can trigger emergency alerts that:
+### Live Location Tracking & Sharing
+- Real-time coordinate updates via device geolocation
+- Live location sharing sessions with auto-expiry
+- Distance-based safe-zone entry/exit detection
 
-* Notify predefined emergency contacts
-* Share real-time location
-* Record incident metadata
-* Generate emergency activity logs
+### Activity Monitoring
+A running history of emergency events, location activity, alert triggers, and incident reports — visible to the user, and platform-wide to admins.
 
-## Live Location Tracking
+### Interactive Mapping
+Route display, live position, tracking paths, and safe-zone visualization via OpenStreetMap (web: Leaflet; mobile: flutter_map) — no API key required.
 
-The application continuously tracks user location using device geolocation services.
-
-Capabilities include:
-
-* Real-time coordinate updates
-* Background tracking
-* Route visualization
-* Distance monitoring
-
-## Activity Monitoring
-
-The system maintains a history of:
-
-* Emergency events
-* Location activities
-* Alert triggers
-* Route tracking sessions
-
-## Interactive Mapping
-
-Integrated mapping functionality enables:
-
-* Route display
-* User position visualization
-* Tracking paths
-* Safety zone awareness
-
-## Mobile Integration
-
-The application supports Android deployment using Capacitor.
-
-Mobile functionality includes:
-
-* Native geolocation access
-* Background tracking
-* Mobile permission handling
-* Device-level integrations
+### Multi-Role System
+- **User** — SOS, contacts, location, reporting, community, wellness tools
+- **Admin** — user oversight, SOS alert monitoring, community moderation, content management
+- **Government Admin** — request review, safe-zone management, data requests
 
 ---
 
-# Technology Stack
+## Technology Stack
 
-## Frontend
+### Web (`src/`)
+- React, TypeScript, Vite
+- Tailwind CSS, shadcn/ui
+- React Router, TanStack Query
+- Leaflet / React Leaflet
 
-* React
-* TypeScript
-* Vite
-* Tailwind CSS
-* shadcn/ui
-* React Router
+### Mobile (`mobile/`)
+- Flutter (Dart) — single codebase, native Android + iOS builds
+- `geolocator`, `flutter_map`, `sensors_plus`, `record`, `camera`, `file_picker`, `speech_to_text`
+- `supabase_flutter` — same backend as the web app
 
-## Backend & Services
-
-* Supabase
-* PostgreSQL
-* Supabase Authentication
-* Supabase Realtime Services
-
-## Mobile & Native
-
-* Capacitor
-* Android Platform
-* Capacitor Geolocation
-
-## Maps & Location
-
-* Leaflet
-* React Leaflet
-* Background Geolocation
-
-## State & Data Management
-
-* TanStack Query
+### Backend & Services
+- Supabase: PostgreSQL, Auth, Realtime, Storage, Edge Functions
+- Brevo — transactional email (emergency alert delivery)
 
 ---
 
-# Project Structure
+## Project Structure
 
 ```txt
-src/
- ├── components/
- ├── hooks/
- ├── pages/
- ├── integrations/
- ├── lib/
- ├── services/
- ├── utils/
- ├── types/
- └── styles/
+.
+├── src/                     # Web app (React + Vite)
+│   ├── components/
+│   ├── hooks/
+│   ├── pages/
+│   ├── integrations/
+│   ├── lib/
+│   ├── services/
+│   ├── utils/
+│   ├── types/
+│   └── styles/
+├── mobile/                  # Mobile app (Flutter)
+│   ├── lib/
+│   │   ├── core/            # theme, navigation, Supabase client
+│   │   ├── models/
+│   │   ├── services/
+│   │   ├── screens/
+│   │   └── widgets/
+│   ├── android/
+│   └── ios/
+├── supabase/
+│   ├── functions/           # Edge functions (Deno)
+│   │   ├── send-emergency-alerts/
+│   │   ├── share-live-location/
+│   │   ├── notify-fence-breach/
+│   │   ├── process-recording-upload/
+│   │   └── chatbot-support/
+│   └── migrations/
+└── public/
 ```
 
 ---
 
-# Installation
+## Installation
 
-## Prerequisites
+### Prerequisites
+- Node.js (v18+) and npm
+- Flutter SDK (for the mobile app) — see [flutter.dev/docs/get-started/install](https://docs.flutter.dev/get-started/install)
+- Android Studio + Java JDK (for Android builds)
+- Xcode (for iOS builds, macOS only)
+- Supabase CLI (`npm install -g supabase`) — for deploying edge functions/migrations
 
-Ensure the following are installed:
-
-* Node.js (v18 or later recommended)
-* npm or pnpm
-* Android Studio (for Android builds)
-* Java JDK
-
----
-
-# Setup
-
-Install dependencies:
-
+### Web app setup
 ```bash
 npm install
+npm run dev        # start dev server
+npm run build       # production build
+npm run preview     # preview production build
 ```
 
-Run the development server:
-
+### Mobile app setup
 ```bash
-npm run dev
-```
-
-Build the project:
-
-```bash
-npm run build
-```
-
-Preview production build:
-
-```bash
-npm run preview
+cd mobile
+flutter pub get
+flutter run          # run on a connected device/emulator
 ```
 
 ---
 
-# Android Deployment
-
-Add Android platform:
+## Backend Deployment
 
 ```bash
-npx cap add android
-```
+supabase login
+supabase link --project-ref <your-project-ref>
 
-Sync Capacitor:
+# Deploy an edge function after changes
+supabase functions deploy send-emergency-alerts
 
-```bash
-npx cap sync
-```
+# Apply database migrations
+supabase db push
 
-Open Android Studio:
-
-```bash
-npx cap open android
+# Set secrets (e.g. email provider API key)
+supabase secrets set BREVO_API_KEY=your_key_here
 ```
 
 ---
 
-# Potential Future Enhancements
+## Potential Future Enhancements
 
-The system architecture supports future expansion including:
-
-* AI-powered threat detection
-* Voice-based emergency activation
-* Violence/scream detection
-* Geo-fencing alerts
-* Safe route recommendation
-* Wearable device integration
-* Emergency response dashboards
-* Push notification infrastructure
-* Offline emergency mode
+- AI-powered threat detection
+- Voice-activated SOS (in progress — mobile app has working speech recognition, trigger-phrase detection wired to SOS)
+- Scream/distress-sound detection (basic amplitude-based version implemented on mobile)
+- Safe route recommendation
+- Wearable device integration
+- Push notification infrastructure
+- Offline emergency mode
+- SMS delivery alongside email alerts
 
 ---
 
-# Development Goals
+## Development Goals
 
-The primary goals of this project are:
-
-* Improve personal safety accessibility
-* Enable rapid emergency response
-* Provide scalable safety infrastructure
-* Support mobile-first emergency systems
-* Integrate real-time monitoring technologies
+- Improve personal safety accessibility
+- Enable rapid, reliable emergency response
+- Provide scalable safety infrastructure across web and native mobile
+- Integrate real-time monitoring technologies
+- Support multi-role oversight (user / admin / government) for community and institutional use
 
 ---
 
-# Summary
+## Summary
 
-This Safety & Protection App is a robust multi-role system offering emergency tools, reporting features, AI detection mechanisms, and government oversight integration. The combination of mobile app functionality with a secure web backend enables responsive and structured safety handling in real-time for both personal and community benefit.
+SafeGuard is a multi-role personal safety platform offering emergency SOS tools, incident reporting, community support features, and administrative/government oversight — delivered as a web app and a native Flutter mobile app sharing one Supabase backend, enabling responsive, structured safety handling in real time.

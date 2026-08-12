@@ -25,3 +25,24 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Flutter mobile app (mobile/)
+mobile/build/
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/.pub-cache/
+mobile/.pub/
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+mobile/ios/Pods/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/*.iml
+mobile/android/*.iml
+mobile/android/build/
+mobile/android/app/build/

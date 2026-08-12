@@ -1,32 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { liveLocationService } from '@/features/live-location/services/liveLocationService';
 import { useToast } from '@/hooks/use-toast';
-import { Capacitor, registerPlugin } from '@capacitor/core';
-
-// Lazily-typed handle for the community background-geolocation plugin.
-// We only call it on native platforms, so the web bundle stays safe.
-interface BgWatcherLocation {
-  latitude: number;
-  longitude: number;
-  accuracy?: number;
-}
-interface BgGeoPlugin {
-  addWatcher(
-    options: {
-      backgroundMessage?: string;
-      backgroundTitle?: string;
-      requestPermissions?: boolean;
-      stale?: boolean;
-      distanceFilter?: number;
-    },
-    callback: (
-      location: BgWatcherLocation | null,
-      error?: { code: string; message: string },
-    ) => void,
-  ): Promise<string>;
-  removeWatcher(options: { id: string }): Promise<void>;
-}
-const BackgroundGeolocation = registerPlugin<BgGeoPlugin>('BackgroundGeolocation');
 
 const MIN_DISTANCE_METERS = 50;
 const MAX_DURATION_MINUTES = 60;
@@ -63,7 +37,6 @@ export const useLiveLocationSharing = () => {
   const [expiresAt, setExpiresAt] = useState<Date | null>(null);
 
   const watchIdRef = useRef<number | null>(null);
-  const nativeWatcherIdRef = useRef<string | null>(null);
   const lastSentRef = useRef<LiveLocation | null>(null);
   const sessionIdRef = useRef<string | null>(null);
   const expiryTimerRef = useRef<number | null>(null);
@@ -156,14 +129,6 @@ export const useLiveLocationSharing = () => {
       if (watchIdRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
-      }
-      if (nativeWatcherIdRef.current) {
-        try {
-          await BackgroundGeolocation.removeWatcher({ id: nativeWatcherIdRef.current });
-        } catch (e) {
-          console.warn('Failed to remove native watcher:', e);
-        }
-        nativeWatcherIdRef.current = null;
       }
       if (expiryTimerRef.current !== null) {
         window.clearTimeout(expiryTimerRef.current);
@@ -265,7 +230,7 @@ export const useLiveLocationSharing = () => {
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 },
       );
 
-      // Watch for movement — prefer native background watcher when running on iOS/Android.
+      // Watch for movement via the browser's geolocation API.
       const handleMovement = async (loc: LiveLocation) => {
         setCurrentLocation(loc);
         // Geofence check on every position update (cheap, local)
@@ -279,47 +244,16 @@ export const useLiveLocationSharing = () => {
         }
       };
 
-      if (Capacitor.isNativePlatform()) {
-        try {
-          const id = await BackgroundGeolocation.addWatcher(
-            {
-              backgroundMessage: 'SafeGuard is sharing your live location.',
-              backgroundTitle: 'Live location sharing active',
-              requestPermissions: true,
-              stale: false,
-              distanceFilter: MIN_DISTANCE_METERS,
-            },
-            (location, error) => {
-              if (error) {
-                console.warn('Native geolocation error:', error);
-                return;
-              }
-              if (!location) return;
-              void handleMovement({
-                lat: location.latitude,
-                lng: location.longitude,
-                accuracy: location.accuracy,
-              });
-            },
-          );
-          nativeWatcherIdRef.current = id;
-        } catch (e) {
-          console.warn('Background geolocation unavailable, falling back to web watch:', e);
-        }
-      }
-
-      if (!nativeWatcherIdRef.current) {
-        watchIdRef.current = navigator.geolocation.watchPosition(
-          (pos) =>
-            void handleMovement({
-              lat: pos.coords.latitude,
-              lng: pos.coords.longitude,
-              accuracy: pos.coords.accuracy,
-            }),
-          (err) => console.warn('watchPosition error:', err),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
-        );
-      }
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) =>
+          void handleMovement({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            accuracy: pos.coords.accuracy,
+          }),
+        (err) => console.warn('watchPosition error:', err),
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 30000 },
+      );
     },
     [isSharing, sendUpdate, stopSharing, toast, checkGeofence, loadSafeZones],
   );
@@ -329,9 +263,6 @@ export const useLiveLocationSharing = () => {
     return () => {
       if (watchIdRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
-      }
-      if (nativeWatcherIdRef.current) {
-        BackgroundGeolocation.removeWatcher({ id: nativeWatcherIdRef.current }).catch(() => {});
       }
       if (expiryTimerRef.current !== null) {
         window.clearTimeout(expiryTimerRef.current);

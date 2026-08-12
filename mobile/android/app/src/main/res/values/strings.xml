@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Goes in: android/app/src/main/res/values/strings.xml
+  If that file doesn't exist yet, create it with this content. If it does
+  exist, just add the <string> line inside the existing <resources> block.
+-->
+<resources>
+    <string name="accessibility_service_description">Lets SafeGuard detect a triple volume-button press to trigger an SOS alert, even when your phone is locked or SafeGuard isn\'t open. SafeGuard does not use this permission to read screen content, track other apps, or collect any data beyond the volume-button presses needed for this feature.</string>
+</resources>
